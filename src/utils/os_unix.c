@@ -1,6 +1,6 @@
 /*
- * wpa_supplicant/hostapd / OS specific functions for UNIX/POSIX systems
- * Copyright (c) 2005-2006, Jouni Malinen <j@w1.fi>
+ * OS specific functions for UNIX/POSIX systems
+ * Copyright (c) 2005-2009, Jouni Malinen <j@w1.fi>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,15 +14,35 @@
 
 #include "includes.h"
 
-#include "os.h"
-
 #ifdef ANDROID
-#ifdef ANDROID_ECLAIR
 #include <linux/capability.h>
 #include <linux/prctl.h>
 #include <private/android_filesystem_config.h>
-#endif
-#endif
+#endif /* ANDROID */
+
+#include "os.h"
+
+#ifdef WPA_TRACE
+
+#include "common.h"
+#include "list.h"
+#include "wpa_debug.h"
+#include "trace.h"
+
+static struct dl_list alloc_list;
+
+#define ALLOC_MAGIC 0xa84ef1b2
+#define FREED_MAGIC 0x67fd487a
+
+struct os_alloc_trace {
+	unsigned int magic;
+	struct dl_list list;
+	size_t len;
+	WPA_TRACE_INFO
+};
+
+#endif /* WPA_TRACE */
+
 
 void os_sleep(os_time_t sec, os_time_t usec)
 {
@@ -121,9 +141,9 @@ static int os_daemon(int nochdir, int noclose)
 
 int os_daemonize(const char *pid_file)
 {
-#ifdef __uClinux__
+#if defined(__uClinux__) || defined(__sun__)
 	return -1;
-#else /* __uClinux__ */
+#else /* defined(__uClinux__) || defined(__sun__) */
 	if (os_daemon(0, 0)) {
 		perror("daemon");
 		return -1;
@@ -138,7 +158,7 @@ int os_daemonize(const char *pid_file)
 	}
 
 	return -0;
-#endif /* __uClinux__ */
+#endif /* defined(__uClinux__) || defined(__sun__) */
 }
 
 
@@ -180,16 +200,16 @@ char * os_rel2abs_path(const char *rel_path)
 	int last_errno;
 
 	if (rel_path[0] == '/')
-		return strdup(rel_path);
+		return os_strdup(rel_path);
 
 	for (;;) {
-		buf = malloc(len);
+		buf = os_malloc(len);
 		if (buf == NULL)
 			return NULL;
 		cwd = getcwd(buf, len);
 		if (cwd == NULL) {
 			last_errno = errno;
-			free(buf);
+			os_free(buf);
 			if (last_errno != ERANGE)
 				return NULL;
 			len *= 2;
@@ -201,17 +221,17 @@ char * os_rel2abs_path(const char *rel_path)
 		}
 	}
 
-	cwd_len = strlen(cwd);
-	rel_len = strlen(rel_path);
+	cwd_len = os_strlen(cwd);
+	rel_len = os_strlen(rel_path);
 	ret_len = cwd_len + 1 + rel_len + 1;
-	ret = malloc(ret_len);
+	ret = os_malloc(ret_len);
 	if (ret) {
-		memcpy(ret, cwd, cwd_len);
+		os_memcpy(ret, cwd, cwd_len);
 		ret[cwd_len] = '/';
-		memcpy(ret + cwd_len + 1, rel_path, rel_len);
+		os_memcpy(ret + cwd_len + 1, rel_path, rel_len);
 		ret[ret_len - 1] = '\0';
 	}
-	free(buf);
+	os_free(buf);
 	return ret;
 }
 
@@ -219,15 +239,14 @@ char * os_rel2abs_path(const char *rel_path)
 int os_program_init(void)
 {
 #ifdef ANDROID
-#ifdef ANDROID_ECLAIR
-	/* We ignore errors here since errors are normal if we
+	/*
+	 * We ignore errors here since errors are normal if we
 	 * are already running as non-root.
 	 */
-#ifdef CONFIG_WAPI
-	gid_t groups[] = { AID_INET, AID_WIFI, AID_KEYSTORE, AID_SYSTEM };
-#else
 	gid_t groups[] = { AID_INET, AID_WIFI, AID_KEYSTORE };
-#endif
+	struct __user_cap_header_struct header;
+	struct __user_cap_data_struct cap;
+
 	setgroups(sizeof(groups)/sizeof(groups[0]), groups);
 
 	prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
@@ -235,22 +254,42 @@ int os_program_init(void)
 	setgid(AID_WIFI);
 	setuid(AID_WIFI);
 
-	struct __user_cap_header_struct header;
-	struct __user_cap_data_struct cap;
 	header.version = _LINUX_CAPABILITY_VERSION;
 	header.pid = 0;
 	cap.effective = cap.permitted =
 		(1 << CAP_NET_ADMIN) | (1 << CAP_NET_RAW);
 	cap.inheritable = 0;
 	capset(&header, &cap);
-#endif
-#endif
+#endif /* ANDROID */
+
+#ifdef WPA_TRACE
+	dl_list_init(&alloc_list);
+#endif /* WPA_TRACE */
 	return 0;
 }
 
 
 void os_program_deinit(void)
 {
+#ifdef WPA_TRACE
+	struct os_alloc_trace *a;
+	unsigned long total = 0;
+	dl_list_for_each(a, &alloc_list, struct os_alloc_trace, list) {
+		total += a->len;
+		if (a->magic != ALLOC_MAGIC) {
+			wpa_printf(MSG_INFO, "MEMLEAK[%p]: invalid magic 0x%x "
+				   "len %lu",
+				   a, a->magic, (unsigned long) a->len);
+			continue;
+		}
+		wpa_printf(MSG_INFO, "MEMLEAK[%p]: len %lu",
+			   a, (unsigned long) a->len);
+		wpa_trace_dump("memleak", a);
+	}
+	if (total)
+		wpa_printf(MSG_INFO, "MEMLEAK: total %lu bytes",
+			   (unsigned long) total);
+#endif /* WPA_TRACE */
 }
 
 
@@ -262,7 +301,8 @@ int os_setenv(const char *name, const char *value, int overwrite)
 
 int os_unsetenv(const char *name)
 {
-#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__) || \
+    defined(__OpenBSD__)
 	unsetenv(name);
 	return 0;
 #else
@@ -275,16 +315,23 @@ char * os_readfile(const char *name, size_t *len)
 {
 	FILE *f;
 	char *buf;
+	long pos;
 
 	f = fopen(name, "rb");
 	if (f == NULL)
 		return NULL;
 
-	fseek(f, 0, SEEK_END);
-	*len = ftell(f);
-	fseek(f, 0, SEEK_SET);
+	if (fseek(f, 0, SEEK_END) < 0 || (pos = ftell(f)) < 0) {
+		fclose(f);
+		return NULL;
+	}
+	*len = pos;
+	if (fseek(f, 0, SEEK_SET) < 0) {
+		fclose(f);
+		return NULL;
+	}
 
-	buf = malloc(*len);
+	buf = os_malloc(*len);
 	if (buf == NULL) {
 		fclose(f);
 		return NULL;
@@ -292,7 +339,7 @@ char * os_readfile(const char *name, size_t *len)
 
 	if (fread(buf, 1, *len, f) != *len) {
 		fclose(f);
-		free(buf);
+		os_free(buf);
 		return NULL;
 	}
 
@@ -302,10 +349,12 @@ char * os_readfile(const char *name, size_t *len)
 }
 
 
+#ifndef WPA_TRACE
 void * os_zalloc(size_t size)
 {
 	return calloc(1, size);
 }
+#endif /* WPA_TRACE */
 
 
 size_t os_strlcpy(char *dest, const char *src, size_t siz)
@@ -331,3 +380,95 @@ size_t os_strlcpy(char *dest, const char *src, size_t siz)
 
 	return s - src - 1;
 }
+
+
+#ifdef WPA_TRACE
+
+void * os_malloc(size_t size)
+{
+	struct os_alloc_trace *a;
+	a = malloc(sizeof(*a) + size);
+	if (a == NULL)
+		return NULL;
+	a->magic = ALLOC_MAGIC;
+	dl_list_add(&alloc_list, &a->list);
+	a->len = size;
+	wpa_trace_record(a);
+	return a + 1;
+}
+
+
+void * os_realloc(void *ptr, size_t size)
+{
+	struct os_alloc_trace *a;
+	size_t copy_len;
+	void *n;
+
+	if (ptr == NULL)
+		return os_malloc(size);
+
+	a = (struct os_alloc_trace *) ptr - 1;
+	if (a->magic != ALLOC_MAGIC) {
+		wpa_printf(MSG_INFO, "REALLOC[%p]: invalid magic 0x%x%s",
+			   a, a->magic,
+			   a->magic == FREED_MAGIC ? " (already freed)" : "");
+		wpa_trace_show("Invalid os_realloc() call");
+		abort();
+	}
+	n = os_malloc(size);
+	if (n == NULL)
+		return NULL;
+	copy_len = a->len;
+	if (copy_len > size)
+		copy_len = size;
+	os_memcpy(n, a + 1, copy_len);
+	os_free(ptr);
+	return n;
+}
+
+
+void os_free(void *ptr)
+{
+	struct os_alloc_trace *a;
+
+	if (ptr == NULL)
+		return;
+	a = (struct os_alloc_trace *) ptr - 1;
+	if (a->magic != ALLOC_MAGIC) {
+		wpa_printf(MSG_INFO, "FREE[%p]: invalid magic 0x%x%s",
+			   a, a->magic,
+			   a->magic == FREED_MAGIC ? " (already freed)" : "");
+		wpa_trace_show("Invalid os_free() call");
+		abort();
+	}
+	dl_list_del(&a->list);
+	a->magic = FREED_MAGIC;
+
+	wpa_trace_check_ref(ptr);
+	free(a);
+}
+
+
+void * os_zalloc(size_t size)
+{
+	void *ptr = os_malloc(size);
+	if (ptr)
+		os_memset(ptr, 0, size);
+	return ptr;
+}
+
+
+char * os_strdup(const char *s)
+{
+	size_t len;
+	char *d;
+	len = os_strlen(s);
+	d = os_malloc(len + 1);
+	if (d == NULL)
+		return NULL;
+	os_memcpy(d, s, len);
+	d[len] = '\0';
+	return d;
+}
+
+#endif /* WPA_TRACE */

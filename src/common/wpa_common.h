@@ -56,6 +56,7 @@
 #endif /* CONFIG_IEEE80211R */
 #define RSN_AUTH_KEY_MGMT_802_1X_SHA256 RSN_SELECTOR(0x00, 0x0f, 0xac, 5)
 #define RSN_AUTH_KEY_MGMT_PSK_SHA256 RSN_SELECTOR(0x00, 0x0f, 0xac, 6)
+#define RSN_AUTH_KEY_MGMT_TPK_HANDSHAKE RSN_SELECTOR(0x00, 0x0f, 0xac, 7)
 
 #define RSN_CIPHER_SUITE_NONE RSN_SELECTOR(0x00, 0x0f, 0xac, 0)
 #define RSN_CIPHER_SUITE_WEP40 RSN_SELECTOR(0x00, 0x0f, 0xac, 1)
@@ -68,6 +69,7 @@
 #ifdef CONFIG_IEEE80211W
 #define RSN_CIPHER_SUITE_AES_128_CMAC RSN_SELECTOR(0x00, 0x0f, 0xac, 6)
 #endif /* CONFIG_IEEE80211W */
+#define RSN_CIPHER_SUITE_NO_GROUP_ADDRESSED RSN_SELECTOR(0x00, 0x0f, 0xac, 7)
 
 /* EAPOL-Key Key Data Encapsulation
  * GroupKey and PeerKey require encryption, otherwise, encryption is optional.
@@ -115,7 +117,13 @@
 /* B4-B5: GTKSA Replay Counter */
 #define WPA_CAPABILITY_MFPR BIT(6)
 #define WPA_CAPABILITY_MFPC BIT(7)
+/* B8: Reserved */
 #define WPA_CAPABILITY_PEERKEY_ENABLED BIT(9)
+#define WPA_CAPABILITY_SPP_A_MSDU_CAPABLE BIT(10)
+#define WPA_CAPABILITY_SPP_A_MSDU_REQUIRED BIT(11)
+#define WPA_CAPABILITY_PBAC BIT(12)
+#define WPA_CAPABILITY_EXT_KEY_ID_FOR_UNICAST BIT(13)
+/* B14-B15: Reserved */
 
 
 /* IEEE 802.11r */
@@ -282,6 +290,12 @@ struct rsn_ftie {
 #define FTIE_SUBELEM_R0KH_ID 3
 #define FTIE_SUBELEM_IGTK 4
 
+struct rsn_rdie {
+	u8 id;
+	u8 descr_count;
+	le16 status_code;
+} STRUCT_PACKED;
+
 #endif /* CONFIG_IEEE80211R */
 
 #ifdef _MSC_VER
@@ -331,5 +345,17 @@ struct wpa_ie_data {
 
 int wpa_parse_wpa_ie_rsn(const u8 *rsn_ie, size_t rsn_ie_len,
 			 struct wpa_ie_data *data);
+int wpa_parse_wpa_ie_wpa(const u8 *wpa_ie, size_t wpa_ie_len,
+			 struct wpa_ie_data *data);
+
+void rsn_pmkid(const u8 *pmk, size_t pmk_len, const u8 *aa, const u8 *spa,
+	       u8 *pmkid, int use_sha256);
+
+const char * wpa_cipher_txt(int cipher);
+const char * wpa_key_mgmt_txt(int key_mgmt, int proto);
+int wpa_compare_rsn_ie(int ft_initial_assoc,
+		       const u8 *ie1, size_t ie1len,
+		       const u8 *ie2, size_t ie2len);
+int wpa_insert_pmkid(u8 *ies, size_t ies_len, const u8 *pmkid);
 
 #endif /* WPA_COMMON_H */

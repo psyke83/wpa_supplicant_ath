@@ -15,13 +15,8 @@
 #include "includes.h"
 
 #include "common.h"
-#include "sha1.h"
+#include "crypto/sha1.h"
 #include "eap_peap_common.h"
-#ifdef ANDROID
-#ifndef SHA1_MAC_LEN
-#define SHA1_MAC_LEN 20
-#endif
-#endif
 
 void peap_prfplus(int version, const u8 *key, size_t key_len,
 		  const char *label, const u8 *seed, size_t seed_len,

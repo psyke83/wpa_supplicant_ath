@@ -15,17 +15,9 @@
 #ifndef WPA_H
 #define WPA_H
 
-#include "defs.h"
-#include "eapol_common.h"
-#include "wpa_common.h"
-
-#ifndef ETH_P_EAPOL
-#define ETH_P_EAPOL 0x888e
-#endif
-
-#ifndef ETH_P_RSN_PREAUTH
-#define ETH_P_RSN_PREAUTH 0x88c7
-#endif
+#include "common/defs.h"
+#include "common/eapol_common.h"
+#include "common/wpa_common.h"
 
 struct wpa_sm;
 struct eapol_sm;
@@ -33,12 +25,13 @@ struct wpa_config_blob;
 
 struct wpa_sm_ctx {
 	void *ctx; /* pointer to arbitrary upper level context */
+	void *msg_ctx; /* upper level context for wpa_msg() calls */
 
-	void (*set_state)(void *ctx, wpa_states state);
-	wpa_states (*get_state)(void *ctx);
+	void (*set_state)(void *ctx, enum wpa_states state);
+	enum wpa_states (*get_state)(void *ctx);
 	void (*deauthenticate)(void * ctx, int reason_code); 
 	void (*disassociate)(void *ctx, int reason_code);
-	int (*set_key)(void *ctx, wpa_alg alg,
+	int (*set_key)(void *ctx, enum wpa_alg alg,
 		       const u8 *addr, int key_idx, int set_tx,
 		       const u8 *seq, size_t seq_len,
 		       const u8 *key, size_t key_len);
@@ -61,6 +54,13 @@ struct wpa_sm_ctx {
 			     size_t ies_len);
 	int (*send_ft_action)(void *ctx, u8 action, const u8 *target_ap,
 			      const u8 *ies, size_t ies_len);
+	int (*mark_authenticated)(void *ctx, const u8 *target_ap);
+#ifdef CONFIG_TDLS
+	int (*send_tdls_mgmt)(void *ctx, const u8 *dst,
+			      u8 action_code, u8 dialog_token,
+			      u16 status_code, const u8 *buf, size_t len);
+	int (*tdls_oper)(void *ctx, int oper, const u8 *peer);
+#endif /* CONFIG_TDLS */
 };
 
 
@@ -73,17 +73,20 @@ enum wpa_sm_conf_params {
 	WPA_PARAM_GROUP,
 	WPA_PARAM_KEY_MGMT,
 	WPA_PARAM_MGMT_GROUP,
-	WPA_PARAM_RSN_ENABLED
+	WPA_PARAM_RSN_ENABLED,
+	WPA_PARAM_MFP
 };
+
 #ifdef ANDROID
 #define BKID_LEN                 16 
 #define MAX_TURTLENECK_NUMBER    16 
 /* BKID */
 typedef struct _bkid
 {
-    u8                 bkidentify[BKID_LEN];                    /* BKID */
+    u8 bkidentify[BKID_LEN];                    /* BKID */
 }bkid;
 #endif
+
 struct rsn_supp_config {
 	void *network_ctx;
 	int peerkey_enabled;
@@ -95,21 +98,8 @@ struct rsn_supp_config {
 	size_t ssid_len;
 	int wpa_ptk_rekey;
 };
-#ifdef CONFIG_WAPI
-struct wapi_ie_data {
-	u16	version;								
-	u16	akmnumber; 							
-	int	*akmlist;		
-	u16	singlecodenumber;						
-	int	*singlecodelist; 
-	int	multicode; 							
-	u16	wapiability;
-#ifdef ANDROID	
-	u16	bkidnumber;							
-	bkid	*bkidlist;
-#endif
-};
-#endif
+
+
 #ifndef CONFIG_NO_WPA
 
 struct wpa_sm * wpa_sm_init(struct wpa_sm_ctx *ctx);
@@ -149,12 +139,10 @@ void wpa_sm_aborted_cached(struct wpa_sm *sm);
 int wpa_sm_rx_eapol(struct wpa_sm *sm, const u8 *src_addr,
 		    const u8 *buf, size_t len);
 int wpa_sm_parse_own_wpa_ie(struct wpa_sm *sm, struct wpa_ie_data *data);
+int wpa_sm_pmksa_cache_list(struct wpa_sm *sm, char *buf, size_t len);
+void wpa_sm_drop_sa(struct wpa_sm *sm);
+int wpa_sm_has_ptk(struct wpa_sm *sm);
 
-#ifdef CONFIG_WAPI
-
-int wpa_parse_wapi_ie(const u8 *wapi_ie, size_t wapi_ie_len,struct wapi_ie_data *data);
-
-#endif
 
 #else /* CONFIG_NO_WPA */
 
@@ -209,6 +197,7 @@ static inline void wpa_sm_set_ifname(struct wpa_sm *sm, const char *ifname,
 static inline void wpa_sm_set_eapol(struct wpa_sm *sm, struct eapol_sm *eapol)
 {
 }
+
 
 static inline int wpa_sm_set_assoc_wpa_ie(struct wpa_sm *sm, const u8 *ie,
 					  size_t len)
@@ -286,13 +275,20 @@ static inline int wpa_sm_parse_own_wpa_ie(struct wpa_sm *sm,
 	return -1;
 }
 
-#ifdef CONFIG_WAPI
-static inline int wpa_parse_wapi_ie(const u8 *wapi_ie, size_t wapi_ie_len,
-                                    struct wapi_ie_data *data)
+static inline int wpa_sm_pmksa_cache_list(struct wpa_sm *sm, char *buf,
+					  size_t len)
 {
-    return -1;
+	return -1;
 }
-#endif
+
+static inline void wpa_sm_drop_sa(struct wpa_sm *sm)
+{
+}
+
+static inline int wpa_sm_has_ptk(struct wpa_sm *sm)
+{
+	return 0;
+}
 
 #endif /* CONFIG_NO_WPA */
 
@@ -307,27 +303,27 @@ static inline int wpa_sm_stkstart(struct wpa_sm *sm, const u8 *peer)
 
 #ifdef CONFIG_IEEE80211R
 
-int wpa_sm_set_ft_params(struct wpa_sm *sm, const u8 *mobility_domain,
-			 const u8 *r0kh_id, size_t r0kh_id_len,
-			 const u8 *r1kh_id);
-int wpa_ft_prepare_auth_request(struct wpa_sm *sm);
+int wpa_sm_set_ft_params(struct wpa_sm *sm, const u8 *ies, size_t ies_len);
+int wpa_ft_prepare_auth_request(struct wpa_sm *sm, const u8 *mdie);
 int wpa_ft_process_response(struct wpa_sm *sm, const u8 *ies, size_t ies_len,
-			    int ft_action, const u8 *target_ap);
+			    int ft_action, const u8 *target_ap,
+			    const u8 *ric_ies, size_t ric_ies_len);
 int wpa_ft_is_completed(struct wpa_sm *sm);
 int wpa_ft_validate_reassoc_resp(struct wpa_sm *sm, const u8 *ies,
 				 size_t ies_len, const u8 *src_addr);
-int wpa_ft_start_over_ds(struct wpa_sm *sm, const u8 *target_ap);
+int wpa_ft_start_over_ds(struct wpa_sm *sm, const u8 *target_ap,
+			 const u8 *mdie);
 
 #else /* CONFIG_IEEE80211R */
 
 static inline int
-wpa_sm_set_ft_params(struct wpa_sm *sm, const u8 *mobility_domain,
-		     const u8 *r0kh_id, const u8 *r1kh_id)
+wpa_sm_set_ft_params(struct wpa_sm *sm, const u8 *ies, size_t ies_len)
 {
 	return 0;
 }
 
-static inline int wpa_ft_prepare_auth_request(struct wpa_sm *sm)
+static inline int wpa_ft_prepare_auth_request(struct wpa_sm *sm,
+					      const u8 *mdie)
 {
 	return 0;
 }
@@ -352,5 +348,17 @@ wpa_ft_validate_reassoc_resp(struct wpa_sm *sm, const u8 *ies, size_t ies_len,
 }
 
 #endif /* CONFIG_IEEE80211R */
+
+
+/* tdls.c */
+void wpa_tdls_ap_ies(struct wpa_sm *sm, const u8 *ies, size_t len);
+void wpa_tdls_assoc_resp_ies(struct wpa_sm *sm, const u8 *ies, size_t len);
+int wpa_tdls_start(struct wpa_sm *sm, const u8 *addr);
+int wpa_tdls_reneg(struct wpa_sm *sm, const u8 *addr);
+int wpa_tdls_recv_teardown_notify(struct wpa_sm *sm, const u8 *addr,
+				  u16 reason_code);
+int wpa_tdls_init(struct wpa_sm *sm);
+void wpa_tdls_deinit(struct wpa_sm *sm);
+void wpa_tdls_enable(struct wpa_sm *sm, int enabled);
 
 #endif /* WPA_H */

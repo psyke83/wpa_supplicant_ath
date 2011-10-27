@@ -15,7 +15,7 @@
 #ifndef CONFIG_SSID_H
 #define CONFIG_SSID_H
 
-#include "defs.h"
+#include "common/defs.h"
 #include "eap_peer/eap_config.h"
 
 #define MAX_SSID_LEN 32
@@ -31,11 +31,6 @@
 		       WPA_CIPHER_WEP104 | WPA_CIPHER_WEP40)
 #define DEFAULT_FRAGMENT_SIZE 1398
 
-#ifdef CONFIG_WAPI
-#define WAPI_KEY_TYPE_ASCII             0
-#define WAPI_KEY_TYPE_HEX               1
-#define DEFAULT_KEY_TYPE                WAPI_KEY_TYPE_ASCII
-#endif // CONFIG_WAPI
 
 /**
  * struct wpa_ssid - Network configuration data
@@ -115,6 +110,9 @@ struct wpa_ssid {
 	 *
 	 * If set, this network block is used only when associating with the AP
 	 * using the configured BSSID
+	 *
+	 * If this is a persistent P2P group (disabled == 2), this is the GO
+	 * Device Address.
 	 */
 	u8 bssid[ETH_ALEN];
 
@@ -126,11 +124,9 @@ struct wpa_ssid {
 	/**
 	 * psk - WPA pre-shared key (256 bits)
 	 */
+
 	u8 psk[32];
-#if 0
-	int psk_len;
-	u8 is_wapi_hex_psk;
-#endif
+
 	/**
 	 * psk_set - Whether PSK field is configured
 	 */
@@ -280,6 +276,13 @@ struct wpa_ssid {
 	 *
 	 * 1 = IBSS (ad-hoc, peer-to-peer)
 	 *
+	 * 2 = AP (access point)
+	 *
+	 * 3 = P2P Group Owner (can be set in the configuration file)
+	 *
+	 * 4 = P2P Group Formation (used internally; not in configuration
+	 * files)
+	 *
 	 * Note: IBSS can only be used with key_mgmt NONE (plaintext and
 	 * static WEP) and key_mgmt=WPA-NONE (fixed group key TKIP/CCMP). In
 	 * addition, ap_scan has to be set to 2 for IBSS. WPA-None requires
@@ -287,7 +290,13 @@ struct wpa_ssid {
 	 * pairwise=NONE, group=TKIP (or CCMP, but not both), and psk must also
 	 * be set (either directly or using ASCII passphrase).
 	 */
-	int mode;
+	enum wpas_mode {
+		WPAS_MODE_INFRA = 0,
+		WPAS_MODE_IBSS = 1,
+		WPAS_MODE_AP = 2,
+		WPAS_MODE_P2P_GO = 3,
+		WPAS_MODE_P2P_GROUP_FORMATION = 4,
+	} mode;
 
 	/**
 	 * disabled - Whether this network is currently disabled
@@ -295,6 +304,8 @@ struct wpa_ssid {
 	 * 0 = this network can be used (default).
 	 * 1 = this network block is disabled (can be enabled through
 	 * ctrl_iface, e.g., with wpa_cli or wpa_gui).
+	 * 2 = this network block includes parameters for a persistent P2P
+	 * group (can be used with P2P ctrl_iface commands)
 	 */
 	int disabled;
 
@@ -325,11 +336,7 @@ struct wpa_ssid {
 	 * This value is used to configure policy for management frame
 	 * protection (IEEE 802.11w). 0 = disabled, 1 = optional, 2 = required.
 	 */
-	enum {
-		NO_IEEE80211W = 0,
-		IEEE80211W_OPTIONAL = 1,
-		IEEE80211W_REQUIRED = 2
-	} ieee80211w;
+	enum mfp_options ieee80211w;
 #endif /* CONFIG_IEEE80211W */
 
 	/**
@@ -351,6 +358,58 @@ struct wpa_ssid {
 	 * attacks against TKIP deficiencies.
 	 */
 	int wpa_ptk_rekey;
+
+	/**
+	 * scan_freq - Array of frequencies to scan or %NULL for all
+	 *
+	 * This is an optional zero-terminated array of frequencies in
+	 * megahertz (MHz) to include in scan requests when searching for this
+	 * network. This can be used to speed up scanning when the network is
+	 * known to not use all possible channels.
+	 */
+	int *scan_freq;
+
+	/**
+	 * bgscan - Background scan and roaming parameters or %NULL if none
+	 *
+	 * This is an optional set of parameters for background scanning and
+	 * roaming within a network (ESS) in following format:
+	 * <bgscan module name>:<module parameters>
+	 */
+	char *bgscan;
+
+	/**
+	 * freq_list - Array of allowed frequencies or %NULL for all
+	 *
+	 * This is an optional zero-terminated array of frequencies in
+	 * megahertz (MHz) to allow for selecting the BSS. If set, scan results
+	 * that do not match any of the specified frequencies are not
+	 * considered when selecting a BSS.
+	 */
+	int *freq_list;
+
+	/**
+	 * p2p_group - Network generated as a P2P group (used internally)
+	 */
+	int p2p_group;
+
+	/**
+	 * p2p_persistent_group - Whether this is a persistent group
+	 */
+	int p2p_persistent_group;
+
+	/**
+	 * temporary - Whether this network is temporary and not to be saved
+	 */
+	int temporary;
+
+	/**
+	 * export_keys - Whether keys may be exported
+	 *
+	 * This attribute will be set when keys are determined through
+	 * WPS or similar so that they may be exported.
+	 */
+	int export_keys;
 };
 
 #endif /* CONFIG_SSID_H */

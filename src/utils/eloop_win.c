@@ -50,8 +50,6 @@ struct eloop_signal {
 };
 
 struct eloop_data {
-	void *user_data;
-
 	int max_sock;
 	size_t reader_count;
 	struct eloop_sock *readers;
@@ -79,10 +77,9 @@ struct eloop_data {
 static struct eloop_data eloop;
 
 
-int eloop_init(void *user_data)
+int eloop_init(void)
 {
 	os_memset(&eloop, 0, sizeof(eloop));
-	eloop.user_data = user_data;
 	eloop.num_handles = 1;
 	eloop.handles = os_malloc(eloop.num_handles *
 				  sizeof(eloop.handles[0]));
@@ -246,12 +243,24 @@ int eloop_register_timeout(unsigned int secs, unsigned int usecs,
 			   void *eloop_data, void *user_data)
 {
 	struct eloop_timeout *timeout, *tmp, *prev;
+	os_time_t now_sec;
 
 	timeout = os_malloc(sizeof(*timeout));
 	if (timeout == NULL)
 		return -1;
 	os_get_time(&timeout->time);
+	now_sec = timeout->time.sec;
 	timeout->time.sec += secs;
+	if (timeout->time.sec < now_sec) {
+		/*
+		 * Integer overflow - assume long enough timeout to be assumed
+		 * to be infinite, i.e., the timeout would never happen.
+		 */
+		wpa_printf(MSG_DEBUG, "ELOOP: Too long timeout (secs=%u) to "
+			   "ever happen - ignore it", secs);
+		os_free(timeout);
+		return 0;
+	}
 	timeout->time.usec += usecs;
 	while (timeout->time.usec >= 1000000) {
 		timeout->time.sec++;
@@ -372,7 +381,6 @@ static void eloop_process_pending_signals(void)
 		if (eloop.signals[i].signaled) {
 			eloop.signals[i].signaled = 0;
 			eloop.signals[i].handler(eloop.signals[i].sig,
-						 eloop.user_data,
 						 eloop.signals[i].user_data);
 		}
 	}
@@ -380,7 +388,6 @@ static void eloop_process_pending_signals(void)
 	if (eloop.term_signal.signaled) {
 		eloop.term_signal.signaled = 0;
 		eloop.term_signal.handler(eloop.term_signal.sig,
-					  eloop.user_data,
 					  eloop.term_signal.user_data);
 	}
 }
@@ -613,10 +620,4 @@ void eloop_wait_for_read_sock(int sock)
 	WaitForSingleObject(event, INFINITE);
 	WSAEventSelect(sock, event, 0);
 	WSACloseEvent(event);
-}
-
-
-void * eloop_get_user_data(void)
-{
-	return eloop.user_data;
 }

@@ -1,6 +1,6 @@
 /*
  * IEEE 802.11 Frame type definitions
- * Copyright (c) 2002-2007, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2002-2009, Jouni Malinen <j@w1.fi>
  * Copyright (c) 2007-2008 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
@@ -71,6 +71,12 @@
 #define WLAN_FC_STYPE_CFPOLL		6
 #define WLAN_FC_STYPE_CFACKPOLL		7
 #define WLAN_FC_STYPE_QOS_DATA		8
+#define WLAN_FC_STYPE_QOS_DATA_CFACK	9
+#define WLAN_FC_STYPE_QOS_DATA_CFPOLL	10
+#define WLAN_FC_STYPE_QOS_DATA_CFACKPOLL	11
+#define WLAN_FC_STYPE_QOS_NULL		12
+#define WLAN_FC_STYPE_QOS_CFPOLL	14
+#define WLAN_FC_STYPE_QOS_CFACKPOLL	15
 
 /* Authentication algorithms */
 #define WLAN_AUTH_OPEN			0
@@ -95,6 +101,11 @@
 /* Status codes (IEEE 802.11-2007, 7.3.1.9, Table 7-23) */
 #define WLAN_STATUS_SUCCESS 0
 #define WLAN_STATUS_UNSPECIFIED_FAILURE 1
+#define WLAN_STATUS_TDLS_WAKEUP_ALTERNATE 2
+#define WLAN_STATUS_TDLS_WAKEUP_REJECT 3
+#define WLAN_STATUS_SECURITY_DISABLED 5
+#define WLAN_STATUS_UNACCEPTABLE_LIFETIME 6
+#define WLAN_STATUS_NOT_IN_SAME_BSS 7
 #define WLAN_STATUS_CAPS_UNSUPPORTED 10
 #define WLAN_STATUS_REASSOC_NO_ASSOC 11
 #define WLAN_STATUS_ASSOC_DENIED_UNSPEC 12
@@ -114,11 +125,16 @@
 #define WLAN_STATUS_SUPPORTED_CHANNEL_NOT_VALID 24
 /* IEEE 802.11g */
 #define WLAN_STATUS_ASSOC_DENIED_NO_SHORT_SLOT_TIME 25
-#define WLAN_STATUS_ASSOC_DENIED_NO_ER_PBCC 26
-#define WLAN_STATUS_ASSOC_DENIED_NO_DSSS_OFDM 27
+#define WLAN_STATUS_ASSOC_DENIED_NO_DSSS_OFDM 26
+#define WLAN_STATUS_ASSOC_DENIED_NO_HT 27
+#define WLAN_STATUS_R0KH_UNREACHABLE 28
+#define WLAN_STATUS_ASSOC_DENIED_NO_PCO 29
 /* IEEE 802.11w */
 #define WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY 30
 #define WLAN_STATUS_ROBUST_MGMT_FRAME_POLICY_VIOLATION 31
+#define WLAN_STATUS_UNSPECIFIED_QOS_FAILURE 32
+#define WLAN_STATUS_REQUEST_DECLINED 37
+#define WLAN_STATUS_INVALID_PARAMETERS 38
 /* IEEE 802.11i */
 #define WLAN_STATUS_INVALID_IE 40
 #define WLAN_STATUS_GROUP_CIPHER_NOT_VALID 41
@@ -137,6 +153,7 @@
 #define WLAN_STATUS_INVALID_PMKID 53
 #define WLAN_STATUS_INVALID_MDIE 54
 #define WLAN_STATUS_INVALID_FTIE 55
+#define WLAN_STATUS_INVALID_RSNIE 72
 
 /* Reason codes (IEEE 802.11-2007, 7.3.1.7, Table 7-22) */
 #define WLAN_REASON_UNSPECIFIED 1
@@ -164,6 +181,10 @@
 #define WLAN_REASON_INVALID_RSN_IE_CAPAB 22
 #define WLAN_REASON_IEEE_802_1X_AUTH_FAILED 23
 #define WLAN_REASON_CIPHER_SUITE_REJECTED 24
+#define WLAN_REASON_TDLS_TEARDOWN_UNREACHABLE 25
+#define WLAN_REASON_TDLS_TEARDOWN_UNSPECIFIED 26
+/* IEEE 802.11e */
+#define WLAN_REASON_DISASSOC_LOW_ACK 34
 
 
 /* Information Element IDs */
@@ -202,36 +223,106 @@
 #define WLAN_EID_20_40_BSS_INTOLERANT 73
 #define WLAN_EID_OVERLAPPING_BSS_SCAN_PARAMS 74
 #define WLAN_EID_MMIE 76
+#define WLAN_EID_LINK_ID 101
+#define WLAN_EID_ADV_PROTO 108
+#define WLAN_EID_EXT_CAPAB 127
 #define WLAN_EID_VENDOR_SPECIFIC 221
-#ifdef CONFIG_WAPI
-#define WLAN_EID_WAPI 68
-#endif
 
 /* Action frame categories (IEEE 802.11-2007, 7.3.1.11, Table 7-24) */
 #define WLAN_ACTION_SPECTRUM_MGMT 0
 #define WLAN_ACTION_QOS 1
 #define WLAN_ACTION_DLS 2
 #define WLAN_ACTION_BLOCK_ACK 3
+#define WLAN_ACTION_PUBLIC 4
 #define WLAN_ACTION_RADIO_MEASUREMENT 5
 #define WLAN_ACTION_FT 6
+#define WLAN_ACTION_HT 7
 #define WLAN_ACTION_SA_QUERY 8
-#define WLAN_ACTION_WMM 17
+#define WLAN_ACTION_TDLS 12
+#define WLAN_ACTION_WMM 17 /* WMM Specification 1.1 */
+#define WLAN_ACTION_VENDOR_SPECIFIC 127
 
-/* SA Query Action frame (IEEE 802.11w/D7.0, 7.4.9) */
+/* Public action codes */
+#define WLAN_PA_VENDOR_SPECIFIC 9
+#define WLAN_PA_GAS_INITIAL_REQ 10
+#define WLAN_PA_GAS_INITIAL_RESP 11
+#define WLAN_PA_GAS_COMEBACK_REQ 12
+#define WLAN_PA_GAS_COMEBACK_RESP 13
+
+/* SA Query Action frame (IEEE 802.11w/D8.0, 7.4.9) */
 #define WLAN_SA_QUERY_REQUEST 0
 #define WLAN_SA_QUERY_RESPONSE 1
 
-#define WLAN_SA_QUERY_TR_ID_LEN 16
+#define WLAN_SA_QUERY_TR_ID_LEN 2
+
+/* TDLS action codes */
+#define WLAN_TDLS_SETUP_REQUEST 0
+#define WLAN_TDLS_SETUP_RESPONSE 1
+#define WLAN_TDLS_SETUP_CONFIRM 2
+#define WLAN_TDLS_TEARDOWN 3
+#define WLAN_TDLS_PEER_TRAFFIC_INDICATION 4
+#define WLAN_TDLS_CHANNEL_SWITCH_REQUEST 5
+#define WLAN_TDLS_CHANNEL_SWITCH_RESPONSE 6
+#define WLAN_TDLS_PEER_PSM_REQUEST 7
+#define WLAN_TDLS_PEER_PSM_RESPONSE 8
+#define WLAN_TDLS_PEER_TRAFFIC_RESPONSE 9
+#define WLAN_TDLS_DISCOVERY_REQUEST 10
 
 /* Timeout Interval Type */
 #define WLAN_TIMEOUT_REASSOC_DEADLINE 1
 #define WLAN_TIMEOUT_KEY_LIFETIME 2
 #define WLAN_TIMEOUT_ASSOC_COMEBACK 3
 
+/* Advertisement Protocol ID definitions (IEEE 802.11u) */
+enum adv_proto_id {
+	NATIVE_QUERY_PROTOCOL = 0,
+	MIH_INFO_SERVICE = 1,
+	MIH_CMD_AND_EVENT_DISCOVERY = 2,
+	EMERGENCY_ALERT_SYSTEM = 3,
+	LOCATION_TO_SERVICE = 4,
+	ADV_PROTO_VENDOR_SPECIFIC = 221
+};
+
+/* Native Query Protocol info ID definitions (IEEE 802.11u) */
+enum nqp_info_id {
+	NQP_CAPABILITY_LIST = 256,
+	NQP_VENUE_NAME = 257,
+	NQP_EMERGENCY_CALL_NUMBER = 258,
+	NQP_NETWORK_AUTH_TYPE = 259,
+	NQP_ROAMING_CONSORTIUM = 260,
+	NQP_IP_ADDR_TYPE_AVAILABILITY = 261,
+	NQP_NAI_REALM = 262,
+	NQP_3GPP_CELLULAR_NETWORK = 263,
+	NQP_AP_GEOSPATIAL_LOCATION = 264,
+	NQP_AP_CIVIC_LOCATION = 265,
+	NQP_DOMAIN_NAME = 266,
+	NQP_EMERGENCY_ALERT_URI = 267,
+	NQP_VENDOR_SPECIFIC = 56797
+};
+
 
 #ifdef _MSC_VER
 #pragma pack(push, 1)
 #endif /* _MSC_VER */
+
+struct ieee80211_hdr {
+	le16 frame_control;
+	le16 duration_id;
+	u8 addr1[6];
+	u8 addr2[6];
+	u8 addr3[6];
+	le16 seq_ctrl;
+	/* followed by 'u8 addr4[6];' if ToDS and FromDS is set in data frame
+	 */
+} STRUCT_PACKED;
+
+#define IEEE80211_DA_FROMDS addr1
+#define IEEE80211_BSSID_FROMDS addr2
+#define IEEE80211_SA_FROMDS addr3
+
+#define IEEE80211_HDRLEN (sizeof(struct ieee80211_hdr))
+
+#define IEEE80211_FC(type, stype) host_to_le16((type << 2) | (stype << 4))
 
 struct ieee80211_mgmt {
 	le16 frame_control;
@@ -250,6 +341,7 @@ struct ieee80211_mgmt {
 		} STRUCT_PACKED auth;
 		struct {
 			le16 reason_code;
+			u8 variable[0];
 		} STRUCT_PACKED deauth;
 		struct {
 			le16 capab_info;
@@ -273,6 +365,7 @@ struct ieee80211_mgmt {
 		} STRUCT_PACKED reassoc_req;
 		struct {
 			le16 reason_code;
+			u8 variable[0];
 		} STRUCT_PACKED disassoc;
 		struct {
 			u8 timestamp[8];
@@ -302,7 +395,7 @@ struct ieee80211_mgmt {
 					u8 dialog_token;
 					u8 status_code;
 					u8 variable[0];
-				} STRUCT_PACKED wme_action;
+				} STRUCT_PACKED wmm_action;
 				struct{
 					u8 action_code;
 					u8 element_id;
@@ -332,50 +425,29 @@ struct ieee80211_mgmt {
 					u8 action; /* */
 					u8 trans_id[WLAN_SA_QUERY_TR_ID_LEN];
 				} STRUCT_PACKED sa_query_resp;
+				struct {
+					u8 action;
+					u8 variable[0];
+				} STRUCT_PACKED public_action;
+				struct {
+					u8 action; /* 9 */
+					u8 oui[3];
+					/* Vendor-specific content */
+					u8 variable[0];
+				} STRUCT_PACKED vs_public_action;
 			} u;
 		} STRUCT_PACKED action;
 	} u;
 } STRUCT_PACKED;
 
-#ifdef _MSC_VER
-#pragma pack(pop)
-#endif /* _MSC_VER */
 
-#define ERP_INFO_NON_ERP_PRESENT BIT(0)
-#define ERP_INFO_USE_PROTECTION BIT(1)
-#define ERP_INFO_BARKER_PREAMBLE_MODE BIT(2)
-
-
-/* HT Capability element */
-
-enum {
-	MAX_RX_AMPDU_FACTOR_8KB = 0,
-	MAX_RX_AMPDU_FACTOR_16KB,
-	MAX_RX_AMPDU_FACTOR_32KB,
-	MAX_RX_AMPDU_FACTOR_64KB
-};
-
-enum {
-	CALIBRATION_NOT_SUPPORTED = 0,
-	CALIBRATION_CANNOT_INIT,
-	CALIBRATION_CAN_INIT,
-	CALIBRATION_FULL_SUPPORT
-};
-
-enum {
-	MCS_FEEDBACK_NOT_PROVIDED = 0,
-	MCS_FEEDBACK_UNSOLICITED,
-	MCS_FEEDBACK_MRQ_RESPONSE
-};
-
-
-struct ieee80211_ht_capability {
-	le16 capabilities_info;
-	u8 mac_ht_params_info;
+struct ieee80211_ht_capabilities {
+	le16 ht_capabilities_info;
+	u8 a_mpdu_params;
 	u8 supported_mcs_set[16];
-	le16 extended_ht_capability_info;
-	le32 tx_BF_capability_info;
-	u8 antenna_selection_info;
+	le16 ht_extended_capabilities;
+	le32 tx_bf_capability_info;
+	u8 asel_capabilities;
 } STRUCT_PACKED;
 
 
@@ -387,47 +459,13 @@ struct ieee80211_ht_operation {
 	u8 basic_set[16];
 } STRUCT_PACKED;
 
-/* auxiliary bit manipulation macros FIXME: move it to common later... */
-#define SET_2BIT_U8(_ptr_, _shift_, _val_)				\
-	((*(_ptr_) &= ~(3 << (_shift_))),				\
-	 (*(_ptr_) |= (*(_ptr_) & (((u8)3) << (_shift_))) |		\
-		      (((u8)(_val_) & 3) << _shift_)))
+#ifdef _MSC_VER
+#pragma pack(pop)
+#endif /* _MSC_VER */
 
-#define GET_2BIT_U8(_var_, _shift_)	\
-	(((_var_) & (((u8)3) << (_shift_))) >> (_shift_))
-
-#define SET_2BIT_LE16(_u16ptr_, _shift_, _val_)				\
-	((*(_u16ptr_) &= ~(3 << (_shift_))),				\
-	 (*(_u16ptr_) |= 						\
-		(((*(_u16ptr_)) & (((u16)3) << ((u16)_shift_))) |	\
-		(((u16)(_val_) & (u16)3) << (u16)(_shift_)))))
-
-#define GET_2BIT_LE16(_var_, _shift_)	\
-	(((_var_) & (((u16)3) << (_shift_))) >> (_shift_))
-
-#define SET_2BIT_LE32(_u32ptr_, _shift_, _val_)				\
-	((*(_u32ptr_) &= ~(3 << (_shift_))),				\
-	 (*(_u32ptr_) |= (((*(_u32ptr_)) & (((u32)3) << (_shift_))) |	\
-			(((u32)(_val_) & 3) << _shift_))))
-
-#define GET_2BIT_LE32(_var_, _shift_)	\
-	(((_var_) & (((u32)3) << (_shift_))) >> (_shift_))
-
-#define SET_3BIT_LE16(_u16ptr_, _shift_, _val_)				\
-	((*(_u16ptr_) &= ~(7 << (_shift_))),				\
-	(*(_u16ptr_) |= (((*(_u16ptr_)) & (((u16)7) << (_shift_))) |	\
-			(((u16)(_val_) & 7) << _shift_))))
-
-#define GET_3BIT_LE16(_var_, _shift_)	\
-	(((_var_) & (((u16)7) << (_shift_))) >> (_shift_))
-
-#define SET_3BIT_LE32(_u32ptr_, _shift_, _val_)				\
-	((*(_u32ptr_) &= ~(7 << (_shift_))),				\
-	 (*(_u32ptr_) |= (((*(_u32ptr_)) & (((u32)7) << (_shift_))) |	\
-			(((u32)(_val_) & 7) << _shift_))))
-
-#define GET_3BIT_LE32(_var_, _shift_)	\
-	(((_var_) & (((u32)7) << (_shift_))) >> (_shift_))
+#define ERP_INFO_NON_ERP_PRESENT BIT(0)
+#define ERP_INFO_USE_PROTECTION BIT(1)
+#define ERP_INFO_BARKER_PREAMBLE_MODE BIT(2)
 
 
 #define HT_CAP_INFO_LDPC_CODING_CAP		((u16) BIT(0))
@@ -451,9 +489,6 @@ struct ieee80211_ht_operation {
 #define HT_CAP_INFO_40MHZ_INTOLERANT		((u16) BIT(14))
 #define HT_CAP_INFO_LSIG_TXOP_PROTECT_SUPPORT	((u16) BIT(15))
 
-
-#define MAC_HT_PARAM_INFO_MAX_RX_AMPDU_FACTOR_OFFSET	0
-#define MAC_HT_PARAM_INFO_MAX_MPDU_DENSITY_OFFSET	2
 
 #define EXT_HT_CAP_INFO_PCO			((u16) BIT(0))
 #define EXT_HT_CAP_INFO_TRANS_TIME_OFFSET	1
@@ -490,22 +525,6 @@ struct ieee80211_ht_operation {
 #define ASEL_CAPABILITY_RX_AS_CAP ((u8) BIT(5))
 #define ASEL_CAPABILITY_TX_SOUND_PPDUS_CAP ((u8) BIT(6))
 
-
-struct ht_cap_ie {
-	u8 id;
-	u8 length;
-	struct ieee80211_ht_capability data;
-} STRUCT_PACKED;
-
-
-#define REC_TRANS_CHNL_WIDTH_20     0
-#define REC_TRANS_CHNL_WIDTH_ANY    1
-
-#define OP_MODE_PURE                    0
-#define OP_MODE_MAY_BE_LEGACY_STAS      1
-#define OP_MODE_20MHZ_HT_STA_ASSOCED    2
-#define OP_MODE_MIXED                   3
-
 #define HT_INFO_HT_PARAM_SECONDARY_CHNL_OFF_MASK	((u8) BIT(0) | BIT(1))
 #define HT_INFO_HT_PARAM_SECONDARY_CHNL_ABOVE		((u8) BIT(0))
 #define HT_INFO_HT_PARAM_SECONDARY_CHNL_BELOW		((u8) BIT(0) | BIT(1))
@@ -513,6 +532,12 @@ struct ht_cap_ie {
 #define HT_INFO_HT_PARAM_RIFS_MODE			((u8) BIT(3))
 #define HT_INFO_HT_PARAM_CTRL_ACCESS_ONLY		((u8) BIT(4))
 #define HT_INFO_HT_PARAM_SRV_INTERVAL_GRANULARITY	((u8) BIT(5))
+
+
+#define OP_MODE_PURE                    0
+#define OP_MODE_MAY_BE_LEGACY_STAS      1
+#define OP_MODE_20MHZ_HT_STA_ASSOCED    2
+#define OP_MODE_MIXED                   3
 
 #define HT_INFO_OPERATION_MODE_OP_MODE_MASK	\
 		((le16) (0x0001 | 0x0002))
@@ -528,62 +553,247 @@ struct ht_cap_ie {
 #define HT_INFO_STBC_PARAM_PCO_ACTIVE			((u16) BIT(10))
 #define HT_INFO_STBC_PARAM_PCO_PHASE			((u16) BIT(11))
 
-
-/* Secondary channel offset element */
-#define SECONDARY_CHANNEL_OFFSET_NONE	0
-#define SECONDARY_CHANNEL_OFFSET_ABOVE	1
-#define SECONDARY_CHANNEL_OFFSET_BELOW	3
-struct secondary_channel_offset_ie {
-	u8 id;
-	u8 length;
-	u8 secondary_offset_offset;
-} STRUCT_PACKED;
-
-
-/* body of Recommended Transmit Channel Width action frame */
-#define CHANNEL_WIDTH_20	0
-#define CHANNEL_WIDTH_ANY	1
-struct recommended_tx_channel_width_action {
-	u8 category;
-	u8 action;
-	u8 channel_width;
-} STRUCT_PACKED;
-
-/* body of MIMO Power Save action frame */
-#define PWR_SAVE_MODE_STATIC	0
-#define PWR_SAVE_MODE_DYNAMIC	1
-struct mimo_pwr_save_action {
-	u8 category;
-	u8 action;
-	u8 enable;
-	u8 mode;
-} STRUCT_PACKED;
-
+#define BSS_MEMBERSHIP_SELECTOR_HT_PHY 127
 
 #define OUI_MICROSOFT 0x0050f2 /* Microsoft (also used in Wi-Fi specs)
 				* 00:50:F2 */
+#define WPA_IE_VENDOR_TYPE 0x0050f201
+#define WPS_IE_VENDOR_TYPE 0x0050f204
+#define OUI_WFA 0x506f9a
+#define P2P_IE_VENDOR_TYPE 0x506f9a09
 
-#define WME_OUI_TYPE 2
-#define WME_OUI_SUBTYPE_INFORMATION_ELEMENT 0
-#define WME_OUI_SUBTYPE_PARAMETER_ELEMENT 1
-#define WME_OUI_SUBTYPE_TSPEC_ELEMENT 2
-#define WME_VERSION 1
+#define WMM_OUI_TYPE 2
+#define WMM_OUI_SUBTYPE_INFORMATION_ELEMENT 0
+#define WMM_OUI_SUBTYPE_PARAMETER_ELEMENT 1
+#define WMM_OUI_SUBTYPE_TSPEC_ELEMENT 2
+#define WMM_VERSION 1
 
-#define WME_ACTION_CODE_SETUP_REQUEST 0
-#define WME_ACTION_CODE_SETUP_RESPONSE 1
-#define WME_ACTION_CODE_TEARDOWN 2
+#define WMM_ACTION_CODE_ADDTS_REQ 0
+#define WMM_ACTION_CODE_ADDTS_RESP 1
+#define WMM_ACTION_CODE_DELTS 2
 
-#define WME_SETUP_RESPONSE_STATUS_ADMISSION_ACCEPTED 0
-#define WME_SETUP_RESPONSE_STATUS_INVALID_PARAMETERS 1
-#define WME_SETUP_RESPONSE_STATUS_REFUSED 3
+#define WMM_ADDTS_STATUS_ADMISSION_ACCEPTED 0
+#define WMM_ADDTS_STATUS_INVALID_PARAMETERS 1
+/* 2 - Reserved */
+#define WMM_ADDTS_STATUS_REFUSED 3
+/* 4-255 - Reserved */
 
-#define WME_TSPEC_DIRECTION_UPLINK 0
-#define WME_TSPEC_DIRECTION_DOWNLINK 1
-#define WME_TSPEC_DIRECTION_BI_DIRECTIONAL 3
+/* WMM TSPEC Direction Field Values */
+#define WMM_TSPEC_DIRECTION_UPLINK 0
+#define WMM_TSPEC_DIRECTION_DOWNLINK 1
+/* 2 - Reserved */
+#define WMM_TSPEC_DIRECTION_BI_DIRECTIONAL 3
+
+/*
+ * WMM Information Element (used in (Re)Association Request frames; may also be
+ * used in Beacon frames)
+ */
+struct wmm_information_element {
+	/* Element ID: 221 (0xdd); Length: 7 */
+	/* required fields for WMM version 1 */
+	u8 oui[3]; /* 00:50:f2 */
+	u8 oui_type; /* 2 */
+	u8 oui_subtype; /* 0 */
+	u8 version; /* 1 for WMM version 1.0 */
+	u8 qos_info; /* AP/STA specific QoS info */
+
+} STRUCT_PACKED;
+
+#define WMM_AC_AIFSN_MASK 0x0f
+#define WMM_AC_AIFNS_SHIFT 0
+#define WMM_AC_ACM 0x10
+#define WMM_AC_ACI_MASK 0x60
+#define WMM_AC_ACI_SHIFT 5
+
+#define WMM_AC_ECWMIN_MASK 0x0f
+#define WMM_AC_ECWMIN_SHIFT 0
+#define WMM_AC_ECWMAX_MASK 0xf0
+#define WMM_AC_ECWMAX_SHIFT 4
+
+struct wmm_ac_parameter {
+	u8 aci_aifsn; /* AIFSN, ACM, ACI */
+	u8 cw; /* ECWmin, ECWmax (CW = 2^ECW - 1) */
+	le16 txop_limit;
+}  STRUCT_PACKED;
+
+/*
+ * WMM Parameter Element (used in Beacon, Probe Response, and (Re)Association
+ * Response frmaes)
+ */
+struct wmm_parameter_element {
+	/* Element ID: 221 (0xdd); Length: 24 */
+	/* required fields for WMM version 1 */
+	u8 oui[3]; /* 00:50:f2 */
+	u8 oui_type; /* 2 */
+	u8 oui_subtype; /* 1 */
+	u8 version; /* 1 for WMM version 1.0 */
+	u8 qos_info; /* AP/STA specif QoS info */
+	u8 reserved; /* 0 */
+	struct wmm_ac_parameter ac[4]; /* AC_BE, AC_BK, AC_VI, AC_VO */
+
+} STRUCT_PACKED;
+
+/* WMM TSPEC Element */
+struct wmm_tspec_element {
+	u8 eid; /* 221 = 0xdd */
+	u8 length; /* 6 + 55 = 61 */
+	u8 oui[3]; /* 00:50:f2 */
+	u8 oui_type; /* 2 */
+	u8 oui_subtype; /* 2 */
+	u8 version; /* 1 */
+	/* WMM TSPEC body (55 octets): */
+	u8 ts_info[3];
+	le16 nominal_msdu_size;
+	le16 maximum_msdu_size;
+	le32 minimum_service_interval;
+	le32 maximum_service_interval;
+	le32 inactivity_interval;
+	le32 suspension_interval;
+	le32 service_start_time;
+	le32 minimum_data_rate;
+	le32 mean_data_rate;
+	le32 peak_data_rate;
+	le32 maximum_burst_size;
+	le32 delay_bound;
+	le32 minimum_phy_rate;
+	le16 surplus_bandwidth_allowance;
+	le16 medium_time;
+} STRUCT_PACKED;
+
+
+/* Access Categories / ACI to AC coding */
+enum {
+	WMM_AC_BE = 0 /* Best Effort */,
+	WMM_AC_BK = 1 /* Background */,
+	WMM_AC_VI = 2 /* Video */,
+	WMM_AC_VO = 3 /* Voice */
+};
+
+
+/* Wi-Fi Direct (P2P) */
+
+#define P2P_OUI_TYPE 9
+
+enum p2p_attr_id {
+	P2P_ATTR_STATUS = 0,
+	P2P_ATTR_MINOR_REASON_CODE = 1,
+	P2P_ATTR_CAPABILITY = 2,
+	P2P_ATTR_DEVICE_ID = 3,
+	P2P_ATTR_GROUP_OWNER_INTENT = 4,
+	P2P_ATTR_CONFIGURATION_TIMEOUT = 5,
+	P2P_ATTR_LISTEN_CHANNEL = 6,
+	P2P_ATTR_GROUP_BSSID = 7,
+	P2P_ATTR_EXT_LISTEN_TIMING = 8,
+	P2P_ATTR_INTENDED_INTERFACE_ADDR = 9,
+	P2P_ATTR_MANAGEABILITY = 10,
+	P2P_ATTR_CHANNEL_LIST = 11,
+	P2P_ATTR_NOTICE_OF_ABSENCE = 12,
+	P2P_ATTR_DEVICE_INFO = 13,
+	P2P_ATTR_GROUP_INFO = 14,
+	P2P_ATTR_GROUP_ID = 15,
+	P2P_ATTR_INTERFACE = 16,
+	P2P_ATTR_OPERATING_CHANNEL = 17,
+	P2P_ATTR_INVITATION_FLAGS = 18,
+	P2P_ATTR_VENDOR_SPECIFIC = 221
+};
+
+#define P2P_MAX_GO_INTENT 15
+
+/* P2P Capability - Device Capability bitmap */
+#define P2P_DEV_CAPAB_SERVICE_DISCOVERY BIT(0)
+#define P2P_DEV_CAPAB_CLIENT_DISCOVERABILITY BIT(1)
+#define P2P_DEV_CAPAB_CONCURRENT_OPER BIT(2)
+#define P2P_DEV_CAPAB_INFRA_MANAGED BIT(3)
+#define P2P_DEV_CAPAB_DEVICE_LIMIT BIT(4)
+#define P2P_DEV_CAPAB_INVITATION_PROCEDURE BIT(5)
+
+/* P2P Capability - Group Capability bitmap */
+#define P2P_GROUP_CAPAB_GROUP_OWNER BIT(0)
+#define P2P_GROUP_CAPAB_PERSISTENT_GROUP BIT(1)
+#define P2P_GROUP_CAPAB_GROUP_LIMIT BIT(2)
+#define P2P_GROUP_CAPAB_INTRA_BSS_DIST BIT(3)
+#define P2P_GROUP_CAPAB_CROSS_CONN BIT(4)
+#define P2P_GROUP_CAPAB_PERSISTENT_RECONN BIT(5)
+#define P2P_GROUP_CAPAB_GROUP_FORMATION BIT(6)
+
+/* Invitation Flags */
+#define P2P_INVITATION_FLAGS_TYPE BIT(0)
+
+/* P2P Manageability */
+#define P2P_MAN_DEVICE_MANAGEMENT BIT(0)
+#define P2P_MAN_CROSS_CONNECTION_PERMITTED BIT(1)
+#define P2P_MAN_COEXISTENCE_OPTIONAL BIT(2)
+
+enum p2p_status_code {
+	P2P_SC_SUCCESS = 0,
+	P2P_SC_FAIL_INFO_CURRENTLY_UNAVAILABLE = 1,
+	P2P_SC_FAIL_INCOMPATIBLE_PARAMS = 2,
+	P2P_SC_FAIL_LIMIT_REACHED = 3,
+	P2P_SC_FAIL_INVALID_PARAMS = 4,
+	P2P_SC_FAIL_UNABLE_TO_ACCOMMODATE = 5,
+	P2P_SC_FAIL_PREV_PROTOCOL_ERROR = 6,
+	P2P_SC_FAIL_NO_COMMON_CHANNELS = 7,
+	P2P_SC_FAIL_UNKNOWN_GROUP = 8,
+	P2P_SC_FAIL_BOTH_GO_INTENT_15 = 9,
+	P2P_SC_FAIL_INCOMPATIBLE_PROV_METHOD = 10,
+	P2P_SC_FAIL_REJECTED_BY_USER = 11,
+};
+
+#define P2P_WILDCARD_SSID "DIRECT-"
+#define P2P_WILDCARD_SSID_LEN 7
+
+/* P2P action frames */
+enum p2p_act_frame_type {
+	P2P_NOA = 0,
+	P2P_PRESENCE_REQ = 1,
+	P2P_PRESENCE_RESP = 2,
+	P2P_GO_DISC_REQ = 3
+};
+
+/* P2P public action frames */
+enum p2p_action_frame_type {
+	P2P_GO_NEG_REQ = 0,
+	P2P_GO_NEG_RESP = 1,
+	P2P_GO_NEG_CONF = 2,
+	P2P_INVITATION_REQ = 3,
+	P2P_INVITATION_RESP = 4,
+	P2P_DEV_DISC_REQ = 5,
+	P2P_DEV_DISC_RESP = 6,
+	P2P_PROV_DISC_REQ = 7,
+	P2P_PROV_DISC_RESP = 8
+};
+
+enum p2p_service_protocol_type {
+	P2P_SERV_ALL_SERVICES = 0,
+	P2P_SERV_BONJOUR = 1,
+	P2P_SERV_UPNP = 2,
+	P2P_SERV_WS_DISCOVERY = 3,
+	P2P_SERV_VENDOR_SPECIFIC = 255
+};
+
+enum p2p_sd_status {
+	P2P_SD_SUCCESS = 0,
+	P2P_SD_PROTO_NOT_AVAILABLE = 1,
+	P2P_SD_REQUESTED_INFO_NOT_AVAILABLE = 2,
+	P2P_SD_BAD_REQUEST = 3
+};
 
 
 #define OUI_BROADCOM 0x00904c /* Broadcom (Epigram) */
 
 #define VENDOR_HT_CAPAB_OUI_TYPE 0x33 /* 00-90-4c:0x33 */
+
+/* cipher suite selectors */
+#define WLAN_CIPHER_SUITE_USE_GROUP	0x000FAC00
+#define WLAN_CIPHER_SUITE_WEP40		0x000FAC01
+#define WLAN_CIPHER_SUITE_TKIP		0x000FAC02
+/* reserved: 				0x000FAC03 */
+#define WLAN_CIPHER_SUITE_CCMP		0x000FAC04
+#define WLAN_CIPHER_SUITE_WEP104	0x000FAC05
+#define WLAN_CIPHER_SUITE_AES_CMAC	0x000FAC06
+
+/* AKM suite selectors */
+#define WLAN_AKM_SUITE_8021X		0x000FAC01
+#define WLAN_AKM_SUITE_PSK		0x000FAC02
 
 #endif /* IEEE802_11_DEFS_H */

@@ -29,7 +29,7 @@ static int hex2num(char c)
 }
 
 
-static int hex2byte(const char *hex)
+int hex2byte(const char *hex)
 {
 	int a, b;
 	a = hex2num(*hex++);
@@ -43,7 +43,7 @@ static int hex2byte(const char *hex)
 
 
 /**
- * hwaddr_aton - Convert ASCII string to MAC address
+ * hwaddr_aton - Convert ASCII string to MAC address (colon-delimited format)
  * @txt: MAC address as a string (e.g., "00:11:22:33:44:55")
  * @addr: Buffer for the MAC address (ETH_ALEN = 6 bytes)
  * Returns: 0 on success, -1 on failure (e.g., string not a MAC address)
@@ -67,6 +67,59 @@ int hwaddr_aton(const char *txt, u8 *addr)
 	}
 
 	return 0;
+}
+
+/**
+ * hwaddr_compact_aton - Convert ASCII string to MAC address (no colon delimitors format)
+ * @txt: MAC address as a string (e.g., "001122334455")
+ * @addr: Buffer for the MAC address (ETH_ALEN = 6 bytes)
+ * Returns: 0 on success, -1 on failure (e.g., string not a MAC address)
+ */
+int hwaddr_compact_aton(const char *txt, u8 *addr)
+{
+	int i;
+
+	for (i = 0; i < 6; i++) {
+		int a, b;
+
+		a = hex2num(*txt++);
+		if (a < 0)
+			return -1;
+		b = hex2num(*txt++);
+		if (b < 0)
+			return -1;
+		*addr++ = (a << 4) | b;
+	}
+	return 0;
+}
+
+/**
+ * hwaddr_aton2 - Convert ASCII string to MAC address (in any known format)
+ * @txt: MAC address as a string (e.g., 00:11:22:33:44:55 or 0011.2233.4455)
+ * @addr: Buffer for the MAC address (ETH_ALEN = 6 bytes)
+ * Returns: Characters used (> 0) on success, -1 on failure
+ */
+int hwaddr_aton2(const char *txt, u8 *addr)
+{
+	int i;
+	const char *pos = txt;
+
+	for (i = 0; i < 6; i++) {
+		int a, b;
+
+		while (*pos == ':' || *pos == '.' || *pos == '-')
+			pos++;
+
+		a = hex2num(*pos++);
+		if (a < 0)
+			return -1;
+		b = hex2num(*pos++);
+		if (b < 0)
+			return -1;
+		*addr++ = (a << 4) | b;
+	}
+
+	return pos - txt;
 }
 
 
@@ -321,77 +374,77 @@ const char * wpa_ssid_txt(const u8 *ssid, size_t ssid_len)
 	ssid_txt[ssid_len] = '\0';
 	for (pos = ssid_txt; *pos != '\0'; pos++) {
 #ifndef WPA_UNICODE_SSID
-		/* Don't do this, since it prevents us from using APs with non-ASCII SSIDs */
+                /* Don't do this, since it prevents us from using APs with non-ASCII SSIDs */   /* EV# 77495 */
 		if ((u8) *pos < 32 || (u8) *pos >= 127)
 			*pos = '_';
-#else
-		// Switch on the high four bits.
-		switch (*pos >> 4) {
-			case 0x00:
-			case 0x01:
-			case 0x02:
-			case 0x03:
-			case 0x04:
-			case 0x05:
-			case 0x06:
-			case 0x07: {
+#else   /* EV# 77495 */
+		  // Switch on the high four bits.
+		  switch (*pos >> 4) {
+                        case 0x00:
+                        case 0x01:
+                        case 0x02:
+                        case 0x03:
+                        case 0x04:
+                        case 0x05:
+                        case 0x06:
+                        case 0x07: {
 				// Bit pattern 0xxx. No need for any extra bytes.
-				break;
-			}
-			case 0x08:
-			case 0x09:
-			case 0x0a:
-			case 0x0b:
-			case 0x0f: {
+				  break;
+                        }
+                        case 0x08:
+                        case 0x09:
+                        case 0x0a:
+                        case 0x0b:
+                        case 0x0f: {
 				/*
-				 * Bit pattern 10xx or 1111, which are illegal start bytes.
-				 * Note: 1111 is valid for normal UTF-8, but not the
-				 * modified UTF-8 used here.
-				 */
-				*pos = '_';
-				break;
-			}
-			case 0x0e: {
-				// Bit pattern 1110, so there are two additional bytes.
-				if (pos+2<ssid_txt+sizeof(ssid_txt)) {
-					++pos;
-					if ((*pos & 0xc0) != 0x80) {
-						*(pos-1) = '_';
-						*pos = '_';
-						break;
-					}
-					++pos;
-					if ((*pos & 0xc0) != 0x80) {
-						*(pos-2) = '_';
-						*(pos-1) = '_';
-						*pos = '_';
-						break;
-					}
-				} else {
-					*pos = '_';
-				}
-				break;
-			}
-			case 0x0c:
-			case 0x0d: {
-				// Bit pattern 110x, so there is one additional byte.
-				if (pos+1<ssid_txt+sizeof(ssid_txt)) {
-					++pos;
-					if ((*pos & 0xc0) != 0x80) {
-						*(pos-1) = '_';
-						*pos = '_';
-						break;
-					}
-				} else {
-					*pos = '_';
-				}
-				break;
-			}
-			default:
-				if ((u8) *pos < 32 || (u8) *pos >= 127)
-					*pos = '_';
-				break;
-		}        
+                                 * Bit pattern 10xx or 1111, which are illegal start bytes.
+                                 * Note: 1111 is valid for normal UTF-8, but not the
+                                 * modified UTF-8 used here.
+                                 */
+				 *pos = '_';
+                                break;
+                        }
+                        case 0x0e: {
+				 // Bit pattern 1110, so there are two additional bytes.
+				 if (pos+2<ssid_txt+sizeof(ssid_txt)) {
+                                        ++pos;
+                                        if ((*pos & 0xc0) != 0x80) {
+                                                *(pos-1) = '_';
+                                                *pos = '_';
+                                                break;
+                                        }
+                                        ++pos;
+                                        if ((*pos & 0xc0) != 0x80) {
+                                                *(pos-2) = '_';
+                                                *(pos-1) = '_';
+                                                *pos = '_';
+                                                break;
+                                        }
+                                } else {
+                                        *pos = '_';
+                                }
+                                break;
+                        }
+                        case 0x0c:
+                        case 0x0d: {
+			         // Bit pattern 110x, so there is one additional byte.
+				 if (pos+1<ssid_txt+sizeof(ssid_txt)) {
+                                        ++pos;
+                                        if ((*pos & 0xc0) != 0x80) {
+                                                *(pos-1) = '_';
+                                                *pos = '_';
+                                                break;
+                                        }
+                                } else {
+                                        *pos = '_';
+                                }
+                                break;
+                        }
+                        default:
+                                if ((u8) *pos < 32 || (u8) *pos >= 127)
+                                        *pos = '_';
+                                break;
+                }         /* EV# 77495 */
 #endif
 	}
 	return ssid_txt;

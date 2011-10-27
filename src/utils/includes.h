@@ -56,4 +56,9 @@
 #endif /* CONFIG_TI_COMPILER */
 #endif /* CONFIG_NATIVE_WINDOWS */
 
+#ifdef ANDROID
+#include <common.h>
+#include <crypto/sha1.h>
+#endif
+
 #endif /* INCLUDES_H */

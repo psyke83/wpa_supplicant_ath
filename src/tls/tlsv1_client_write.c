@@ -15,10 +15,11 @@
 #include "includes.h"
 
 #include "common.h"
-#include "md5.h"
-#include "sha1.h"
+#include "crypto/md5.h"
+#include "crypto/sha1.h"
+#include "crypto/tls.h"
+#include "crypto/random.h"
 #include "x509v3.h"
-#include "tls.h"
 #include "tlsv1_common.h"
 #include "tlsv1_record.h"
 #include "tlsv1_client.h"
@@ -57,7 +58,7 @@ u8 * tls_send_client_hello(struct tlsv1_client *conn, size_t *out_len)
 
 	os_get_time(&now);
 	WPA_PUT_BE32(conn->client_random, now.sec);
-	if (os_get_random(conn->client_random + 4, TLS_RANDOM_LEN - 4)) {
+	if (random_get_bytes(conn->client_random + 4, TLS_RANDOM_LEN - 4)) {
 		wpa_printf(MSG_ERROR, "TLSv1: Could not generate "
 			   "client_random");
 		return NULL;
@@ -209,7 +210,6 @@ static int tls_write_client_certificate(struct tlsv1_client *conn,
 
 static int tlsv1_key_x_anon_dh(struct tlsv1_client *conn, u8 **pos, u8 *end)
 {
-#ifdef EAP_FAST
 	/* ClientDiffieHellmanPublic */
 	u8 *csecret, *csecret_start, *dh_yc, *shared;
 	size_t csecret_len, dh_yc_len, shared_len;
@@ -223,7 +223,7 @@ static int tlsv1_key_x_anon_dh(struct tlsv1_client *conn, u8 **pos, u8 *end)
 			  TLS_ALERT_INTERNAL_ERROR);
 		return -1;
 	}
-	if (os_get_random(csecret, csecret_len)) {
+	if (random_get_bytes(csecret, csecret_len)) {
 		wpa_printf(MSG_DEBUG, "TLSv1: Failed to get random "
 			   "data for Diffie-Hellman");
 		tls_alert(conn, TLS_ALERT_LEVEL_FATAL,
@@ -321,10 +321,6 @@ static int tlsv1_key_x_anon_dh(struct tlsv1_client *conn, u8 **pos, u8 *end)
 	os_free(shared);
 	tlsv1_client_free_dh(conn);
 	return 0;
-#else /* EAP_FAST */
-	tls_alert(conn, TLS_ALERT_LEVEL_FATAL, TLS_ALERT_INTERNAL_ERROR);
-	return -1;
-#endif /* EAP_FAST */
 }
 
 
@@ -673,7 +669,7 @@ static u8 * tls_send_client_key_exchange(struct tlsv1_client *conn,
 
 	*out_len = 0;
 
-	msglen = 1000;
+	msglen = 2000;
 	if (conn->certificate_requested)
 		msglen += tls_client_cert_chain_der_len(conn);
 

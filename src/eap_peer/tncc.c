@@ -180,11 +180,11 @@ TNC_Result TNC_TNCC_ReportMessageTypes(
 	imc = tnc_imc[imcID];
 	os_free(imc->supported_types);
 	imc->supported_types =
-		os_malloc(typeCount * sizeof(TNC_MessageTypeList));
+		os_malloc(typeCount * sizeof(TNC_MessageType));
 	if (imc->supported_types == NULL)
 		return TNC_RESULT_FATAL;
 	os_memcpy(imc->supported_types, supportedTypes,
-		  typeCount * sizeof(TNC_MessageTypeList));
+		  typeCount * sizeof(TNC_MessageType));
 	imc->num_supported_types = typeCount;
 
 	return TNC_RESULT_SUCCESS;
@@ -1106,6 +1106,7 @@ static struct tnc_if_imc * tncc_parse_imc(char *start, char *end, int *error)
 	if (pos >= end || *pos != ' ') {
 		wpa_printf(MSG_ERROR, "TNC: Ignoring invalid IMC line '%s' "
 			   "(no space after name)", start);
+		os_free(imc->name);
 		os_free(imc);
 		return NULL;
 	}

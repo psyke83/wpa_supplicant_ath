@@ -15,10 +15,11 @@
 #include "includes.h"
 
 #include "common.h"
-#include "md5.h"
-#include "sha1.h"
+#include "crypto/md5.h"
+#include "crypto/sha1.h"
+#include "crypto/tls.h"
+#include "crypto/random.h"
 #include "x509v3.h"
-#include "tls.h"
 #include "tlsv1_common.h"
 #include "tlsv1_record.h"
 #include "tlsv1_server.h"
@@ -58,7 +59,7 @@ static int tls_write_server_hello(struct tlsv1_server *conn,
 
 	os_get_time(&now);
 	WPA_PUT_BE32(conn->server_random, now.sec);
-	if (os_get_random(conn->server_random + 4, TLS_RANDOM_LEN - 4)) {
+	if (random_get_bytes(conn->server_random + 4, TLS_RANDOM_LEN - 4)) {
 		wpa_printf(MSG_ERROR, "TLSv1: Could not generate "
 			   "server_random");
 		return -1;
@@ -67,7 +68,7 @@ static int tls_write_server_hello(struct tlsv1_server *conn,
 		    conn->server_random, TLS_RANDOM_LEN);
 
 	conn->session_id_len = TLS_SESSION_ID_MAX_LEN;
-	if (os_get_random(conn->session_id, conn->session_id_len)) {
+	if (random_get_bytes(conn->session_id, conn->session_id_len)) {
 		wpa_printf(MSG_ERROR, "TLSv1: Could not generate "
 			   "session_id");
 		return -1;
@@ -247,12 +248,10 @@ static int tls_write_server_key_exchange(struct tlsv1_server *conn,
 {
 	tls_key_exchange keyx;
 	const struct tls_cipher_suite *suite;
-#ifdef EAP_FAST
 	u8 *pos, *rhdr, *hs_start, *hs_length;
 	size_t rlen;
 	u8 *dh_ys;
 	size_t dh_ys_len;
-#endif /* EAP_FAST */
 
 	suite = tls_get_cipher_suite(conn->rl.cipher_suite);
 	if (suite == NULL)
@@ -272,7 +271,6 @@ static int tls_write_server_key_exchange(struct tlsv1_server *conn,
 		return -1;
 	}
 
-#ifdef EAP_FAST
 	if (conn->cred == NULL || conn->cred->dh_p == NULL ||
 	    conn->cred->dh_g == NULL) {
 		wpa_printf(MSG_DEBUG, "TLSv1: No DH parameters available for "
@@ -290,7 +288,7 @@ static int tls_write_server_key_exchange(struct tlsv1_server *conn,
 				   TLS_ALERT_INTERNAL_ERROR);
 		return -1;
 	}
-	if (os_get_random(conn->dh_secret, conn->dh_secret_len)) {
+	if (random_get_bytes(conn->dh_secret, conn->dh_secret_len)) {
 		wpa_printf(MSG_DEBUG, "TLSv1: Failed to get random "
 			   "data for Diffie-Hellman");
 		tlsv1_server_alert(conn, TLS_ALERT_LEVEL_FATAL,
@@ -433,9 +431,6 @@ static int tls_write_server_key_exchange(struct tlsv1_server *conn,
 	*msgpos = pos;
 
 	return 0;
-#else /* EAP_FAST */
-	return -1;
-#endif /* EAP_FAST */
 }
 
 

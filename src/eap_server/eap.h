@@ -15,7 +15,7 @@
 #ifndef EAP_H
 #define EAP_H
 
-#include "defs.h"
+#include "common/defs.h"
 #include "eap_common/eap_defs.h"
 #include "eap_server/eap_methods.h"
 #include "wpabuf.h"
@@ -91,9 +91,11 @@ struct eapol_callbacks {
 
 struct eap_config {
 	void *ssl_ctx;
+	void *msg_ctx;
 	void *eap_sim_db_priv;
 	Boolean backend_auth;
 	int eap_server;
+	u16 pwd_group;
 	u8 *pac_opaque_encr_key;
 	u8 *eap_fast_a_id;
 	size_t eap_fast_a_id_len;
@@ -105,6 +107,9 @@ struct eap_config {
 	int tnc;
 	struct wps_context *wps;
 	const struct wpabuf *assoc_wps_ie;
+	const struct wpabuf *assoc_p2p_ie;
+	const u8 *peer_addr;
+	int fragment_size;
 };
 
 
@@ -118,5 +123,6 @@ void eap_sm_pending_cb(struct eap_sm *sm);
 int eap_sm_method_pending(struct eap_sm *sm);
 const u8 * eap_get_identity(struct eap_sm *sm, size_t *len);
 struct eap_eapol_interface * eap_get_interface(struct eap_sm *sm);
+void eap_server_clear_identity(struct eap_sm *sm);
 
 #endif /* EAP_H */

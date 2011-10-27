@@ -17,22 +17,29 @@
 
 #include "os.h"
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__GLIBC__)
 #include <endian.h>
 #include <byteswap.h>
 #endif /* __linux__ */
 
-#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || \
+    defined(__OpenBSD__)
 #include <sys/types.h>
 #include <sys/endian.h>
 #define __BYTE_ORDER	_BYTE_ORDER
 #define	__LITTLE_ENDIAN	_LITTLE_ENDIAN
 #define	__BIG_ENDIAN	_BIG_ENDIAN
+#ifdef __OpenBSD__
+#define bswap_16 swap16
+#define bswap_32 swap32
+#define bswap_64 swap64
+#else /* __OpenBSD__ */
 #define bswap_16 bswap16
 #define bswap_32 bswap32
 #define bswap_64 bswap64
+#endif /* __OpenBSD__ */
 #endif /* defined(__FreeBSD__) || defined(__NetBSD__) ||
-	* defined(__DragonFly__) */
+	* defined(__DragonFly__) || defined(__OpenBSD__) */
 
 #ifdef __APPLE__
 #include <sys/types.h>
@@ -303,10 +310,30 @@ static inline unsigned int wpa_swap_32(unsigned int v)
 			 (((u64) (a)[3]) << 24) | (((u64) (a)[2]) << 16) | \
 			 (((u64) (a)[1]) << 8) | ((u64) (a)[0]))
 
-
 #ifndef ETH_ALEN
 #define ETH_ALEN 6
 #endif
+#ifndef IFNAMSIZ
+#define IFNAMSIZ 16
+#endif
+#ifndef ETH_P_ALL
+#define ETH_P_ALL 0x0003
+#endif
+#ifndef ETH_P_80211_ENCAP
+#define ETH_P_80211_ENCAP 0x890d /* TDLS comes under this category */
+#endif
+#ifndef ETH_P_PAE
+#define ETH_P_PAE 0x888E /* Port Access Entity (IEEE 802.1X) */
+#endif /* ETH_P_PAE */
+#ifndef ETH_P_EAPOL
+#define ETH_P_EAPOL ETH_P_PAE
+#endif /* ETH_P_EAPOL */
+#ifndef ETH_P_RSN_PREAUTH
+#define ETH_P_RSN_PREAUTH 0x88c7
+#endif /* ETH_P_RSN_PREAUTH */
+#ifndef ETH_P_RRB
+#define ETH_P_RRB 0x890D
+#endif /* ETH_P_RRB */
 
 
 #ifdef __GNUC__
@@ -377,6 +404,12 @@ void perror(const char *s);
 #ifndef MAC2STR
 #define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
 #define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
+
+/*
+ * Compact form for string representation of MAC address
+ * To be used, e.g., for constructing dbus paths for P2P Devices
+ */
+#define COMPACT_MACSTR "%02x%02x%02x%02x%02x%02x"
 #endif
 
 #ifndef BIT
@@ -411,6 +444,9 @@ typedef u64 __bitwise le64;
 #endif /* __must_check */
 
 int hwaddr_aton(const char *txt, u8 *addr);
+int hwaddr_compact_aton(const char *txt, u8 *addr);
+int hwaddr_aton2(const char *txt, u8 *addr);
+int hex2byte(const char *hex);
 int hexstr2bin(const char *hex, u8 *buf, size_t len);
 void inc_byte_array(u8 *counter, size_t len);
 void wpa_get_ntp_timestamp(u8 *buf);
@@ -433,6 +469,13 @@ static inline int is_zero_ether_addr(const u8 *a)
 	return !(a[0] | a[1] | a[2] | a[3] | a[4] | a[5]);
 }
 
+static inline int is_broadcast_ether_addr(const u8 *a)
+{
+	return (a[0] & a[1] & a[2] & a[3] & a[4] & a[5]) == 0xff;
+}
+
+#define broadcast_ether_addr (const u8 *) "\xff\xff\xff\xff\xff\xff"
+
 #include "wpa_debug.h"
 
 
@@ -447,5 +490,12 @@ static inline int is_zero_ether_addr(const u8 *a)
  */
 void * __hide_aliasing_typecast(void *foo);
 #define aliasing_hide_typecast(a,t) (t *) __hide_aliasing_typecast((a))
+
+#ifdef CONFIG_VALGRIND
+#include <valgrind/memcheck.h>
+#define WPA_MEM_DEFINED(ptr, len) VALGRIND_MAKE_MEM_DEFINED((ptr), (len))
+#else /* CONFIG_VALGRIND */
+#define WPA_MEM_DEFINED(ptr, len) do { } while (0)
+#endif /* CONFIG_VALGRIND */
 
 #endif /* COMMON_H */

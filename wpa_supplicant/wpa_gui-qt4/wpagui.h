@@ -40,7 +40,9 @@ public:
 	virtual void disableNetwork(const QString &sel);
 	virtual int getNetworkDisabled(const QString &sel);
 	void setBssFromScan(const QString &bssid);
+#ifndef QT_NO_SESSIONMANAGER
 	void saveState();
+#endif
 
 public slots:
 	virtual void parse_argv();
@@ -75,6 +77,7 @@ public slots:
 				     int sec, const QString &msg);
 	virtual void showTrayStatus();
 	virtual void wpsDialog();
+	virtual void peersDialog();
 	virtual void tabChanged(int index);
 	virtual void wpsPbc();
 	virtual void wpsGeneratePin();
@@ -93,6 +96,7 @@ protected slots:
 
 private:
 	ScanResults *scanres;
+	Peers *peers;
 	bool networkMayHaveChanged;
 	char *ctrl_iface;
 	EventHistory *eh;
@@ -114,6 +118,7 @@ private:
 	QAction *quitAction;
 	QMenu *tray_menu;
 	QSystemTrayIcon *tray_icon;
+	QString wpaStateTranslate(char *state);
 	void createTrayIcon(bool);
 	bool ackTrayIcon;
 	bool startInTray;

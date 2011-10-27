@@ -17,13 +17,14 @@
 #ifdef CONFIG_PEERKEY
 
 #include "common.h"
-#include "sha1.h"
-#include "sha256.h"
 #include "eloop.h"
+#include "crypto/sha1.h"
+#include "crypto/sha256.h"
+#include "crypto/random.h"
+#include "common/ieee802_11_defs.h"
 #include "wpa.h"
 #include "wpa_i.h"
 #include "wpa_ie.h"
-#include "ieee802_11_defs.h"
 #include "peerkey.h"
 
 
@@ -254,8 +255,8 @@ static int wpa_supplicant_process_smk_m2(
 		peerkey->use_sha256 = 1;
 #endif /* CONFIG_IEEE80211W */
 
-	if (os_get_random(peerkey->pnonce, WPA_NONCE_LEN)) {
-		wpa_msg(sm->ctx->ctx, MSG_WARNING,
+	if (random_get_bytes(peerkey->pnonce, WPA_NONCE_LEN)) {
+		wpa_msg(sm->ctx->msg_ctx, MSG_WARNING,
 			"WPA: Failed to get random data for PNonce");
 		wpa_supplicant_peerkey_free(sm, peerkey);
 		return -1;
@@ -370,8 +371,8 @@ static void wpa_supplicant_send_stk_1_of_4(struct wpa_sm *sm,
 	wpa_add_kde((u8 *) (msg + 1), RSN_KEY_DATA_PMKID,
 		    peerkey->smkid, PMKID_LEN);
 
-	if (os_get_random(peerkey->inonce, WPA_NONCE_LEN)) {
-		wpa_msg(sm->ctx->ctx, MSG_WARNING,
+	if (random_get_bytes(peerkey->inonce, WPA_NONCE_LEN)) {
+		wpa_msg(sm->ctx->msg_ctx, MSG_WARNING,
 			"RSN: Failed to get random data for INonce (STK)");
 		os_free(mbuf);
 		return;
@@ -634,9 +635,11 @@ static int wpa_supplicant_process_smk_error(
 
 	if (kde.mac_addr && kde.mac_addr_len >= ETH_ALEN)
 		os_memcpy(peer, kde.mac_addr, ETH_ALEN);
+	else
+		os_memset(peer, 0, ETH_ALEN);
 	os_memcpy(&error, kde.error, sizeof(error));
 	error_type = be_to_host16(error.error_type);
-	wpa_msg(sm->ctx->ctx, MSG_INFO,
+	wpa_msg(sm->ctx->msg_ctx, MSG_INFO,
 		"RSN: SMK Error KDE received: MUI %d error_type %d peer "
 		MACSTR,
 		be_to_host16(error.mui), error_type,
@@ -695,8 +698,8 @@ static void wpa_supplicant_process_stk_1_of_4(struct wpa_sm *sm,
 		return;
 	}
 
-	if (os_get_random(peerkey->pnonce, WPA_NONCE_LEN)) {
-		wpa_msg(sm->ctx->ctx, MSG_WARNING,
+	if (random_get_bytes(peerkey->pnonce, WPA_NONCE_LEN)) {
+		wpa_msg(sm->ctx->msg_ctx, MSG_WARNING,
 			"RSN: Failed to get random data for PNonce");
 		return;
 	}
@@ -1095,8 +1098,8 @@ int wpa_sm_stkstart(struct wpa_sm *sm, const u8 *peer)
 		  WPA_REPLAY_COUNTER_LEN);
 	inc_byte_array(sm->request_counter, WPA_REPLAY_COUNTER_LEN);
 
-	if (os_get_random(peerkey->inonce, WPA_NONCE_LEN)) {
-		wpa_msg(sm->ctx->ctx, MSG_WARNING,
+	if (random_get_bytes(peerkey->inonce, WPA_NONCE_LEN)) {
+		wpa_msg(sm->ctx->msg_ctx, MSG_WARNING,
 			"WPA: Failed to get random data for INonce");
 		os_free(rbuf);
 		wpa_supplicant_peerkey_free(sm, peerkey);
@@ -1138,6 +1141,7 @@ void peerkey_deinit(struct wpa_sm *sm)
 		peerkey = peerkey->next;
 		os_free(prev);
 	}
+	sm->peerkey = NULL;
 }
 
 

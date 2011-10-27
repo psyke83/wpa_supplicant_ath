@@ -22,11 +22,12 @@
 #include "includes.h"
 
 #include "common.h"
+#include "crypto/ms_funcs.h"
+#include "crypto/random.h"
+#include "common/wpa_ctrl.h"
+#include "mschapv2.h"
 #include "eap_i.h"
 #include "eap_config.h"
-#include "ms_funcs.h"
-#include "wpa_ctrl.h"
-#include "mschapv2.h"
 
 
 #ifdef _MSC_VER
@@ -199,7 +200,7 @@ static struct wpabuf * eap_mschapv2_challenge_reply(
 			   "in Phase 1");
 		peer_challenge = data->peer_challenge;
 		os_memset(r->peer_challenge, 0, MSCHAPV2_CHAL_LEN);
-	} else if (os_get_random(peer_challenge, MSCHAPV2_CHAL_LEN)) {
+	} else if (random_get_bytes(peer_challenge, MSCHAPV2_CHAL_LEN)) {
 		wpabuf_free(resp);
 		return NULL;
 	}
@@ -209,10 +210,15 @@ static struct wpabuf * eap_mschapv2_challenge_reply(
 			   "in Phase 1");
 		auth_challenge = data->auth_challenge;
 	}
-	mschapv2_derive_response(identity, identity_len, password,
-				 password_len, pwhash, auth_challenge,
-				 peer_challenge, r->nt_response,
-				 data->auth_response, data->master_key);
+	if (mschapv2_derive_response(identity, identity_len, password,
+				     password_len, pwhash, auth_challenge,
+				     peer_challenge, r->nt_response,
+				     data->auth_response, data->master_key)) {
+		wpa_printf(MSG_ERROR, "EAP-MSCHAPV2: Failed to derive "
+			   "response");
+		wpabuf_free(resp);
+		return NULL;
+	}
 	data->auth_response_valid = 1;
 	data->master_key_valid = 1;
 
@@ -559,7 +565,7 @@ static struct wpabuf * eap_mschapv2_change_password(
 	}
 
 	/* Peer-Challenge */
-	if (os_get_random(cp->peer_challenge, MSCHAPV2_CHAL_LEN))
+	if (random_get_bytes(cp->peer_challenge, MSCHAPV2_CHAL_LEN))
 		goto fail;
 
 	/* Reserved, must be zero */

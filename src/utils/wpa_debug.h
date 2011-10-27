@@ -20,7 +20,9 @@
 /* Debugging function - conditional printf and hex dump. Driver wrappers can
  * use these for debugging purposes. */
 
-enum { MSG_MSGDUMP, MSG_DEBUG, MSG_INFO, MSG_WARNING, MSG_ERROR };
+enum {
+	MSG_EXCESSIVE, MSG_MSGDUMP, MSG_DEBUG, MSG_INFO, MSG_WARNING, MSG_ERROR
+};
 
 #ifdef CONFIG_NO_STDOUT_DEBUG
 
@@ -34,10 +36,17 @@ enum { MSG_MSGDUMP, MSG_DEBUG, MSG_INFO, MSG_WARNING, MSG_ERROR };
 #define wpa_hexdump_ascii_key(l,t,b,le) do { } while (0)
 #define wpa_debug_open_file(p) do { } while (0)
 #define wpa_debug_close_file() do { } while (0)
+#define wpa_dbg(args...) do { } while (0)
+
+static inline int wpa_debug_reopen_file(void)
+{
+	return 0;
+}
 
 #else /* CONFIG_NO_STDOUT_DEBUG */
 
 int wpa_debug_open_file(const char *path);
+int wpa_debug_reopen_file(void);
 void wpa_debug_close_file(void);
 
 /**
@@ -60,7 +69,7 @@ void wpa_debug_print_timestamp(void);
  *
  * Note: New line '\n' is added to the end of the text when printing to stdout.
  */
-void wpa_printf(int level, char *fmt, ...)
+void wpa_printf(int level, const char *fmt, ...)
 PRINTF_FORMAT(2, 3);
 
 /**
@@ -79,7 +88,8 @@ void wpa_hexdump(int level, const char *title, const u8 *buf, size_t len);
 static inline void wpa_hexdump_buf(int level, const char *title,
 				   const struct wpabuf *buf)
 {
-	wpa_hexdump(level, title, wpabuf_head(buf), wpabuf_len(buf));
+	wpa_hexdump(level, title, buf ? wpabuf_head(buf) : NULL,
+		    buf ? wpabuf_len(buf) : 0);
 }
 
 /**
@@ -100,7 +110,8 @@ void wpa_hexdump_key(int level, const char *title, const u8 *buf, size_t len);
 static inline void wpa_hexdump_buf_key(int level, const char *title,
 				       const struct wpabuf *buf)
 {
-	wpa_hexdump_key(level, title, wpabuf_head(buf), wpabuf_len(buf));
+	wpa_hexdump_key(level, title, buf ? wpabuf_head(buf) : 0,
+			buf ? wpabuf_len(buf) : 0);
 }
 
 /**
@@ -136,12 +147,21 @@ void wpa_hexdump_ascii(int level, const char *title, const u8 *buf,
 void wpa_hexdump_ascii_key(int level, const char *title, const u8 *buf,
 			   size_t len);
 
-#endif /* CONFIG_NO_STDOUT_DEBUG */
+/*
+ * wpa_dbg() behaves like wpa_msg(), but it can be removed from build to reduce
+ * binary size. As such, it should be used with debugging messages that are not
+ * needed in the control interface while wpa_msg() has to be used for anything
+ * that needs to shown to control interface monitors.
+ */
+#define wpa_dbg(args...) wpa_msg(args)
 
+#endif /* CONFIG_NO_STDOUT_DEBUG */
 
 #ifdef CONFIG_NO_WPA_MSG
 #define wpa_msg(args...) do { } while (0)
+#define wpa_msg_ctrl(args...) do { } while (0)
 #define wpa_msg_register_cb(f) do { } while (0)
+#define wpa_msg_register_ifname_cb(f) do { } while (0)
 #else /* CONFIG_NO_WPA_MSG */
 /**
  * wpa_msg - Conditional printf for default target and ctrl_iface monitors
@@ -157,7 +177,22 @@ void wpa_hexdump_ascii_key(int level, const char *title, const u8 *buf,
  *
  * Note: New line '\n' is added to the end of the text when printing to stdout.
  */
-void wpa_msg(void *ctx, int level, char *fmt, ...) PRINTF_FORMAT(3, 4);
+void wpa_msg(void *ctx, int level, const char *fmt, ...) PRINTF_FORMAT(3, 4);
+
+/**
+ * wpa_msg_ctrl - Conditional printf for ctrl_iface monitors
+ * @ctx: Pointer to context data; this is the ctx variable registered
+ *	with struct wpa_driver_ops::init()
+ * @level: priority level (MSG_*) of the message
+ * @fmt: printf format string, followed by optional arguments
+ *
+ * This function is used to print conditional debugging and error messages.
+ * This function is like wpa_msg(), but it sends the output only to the
+ * attached ctrl_iface monitors. In other words, it can be used for frequent
+ * events that do not need to be sent to syslog.
+ */
+void wpa_msg_ctrl(void *ctx, int level, const char *fmt, ...)
+PRINTF_FORMAT(3, 4);
 
 typedef void (*wpa_msg_cb_func)(void *ctx, int level, const char *txt,
 				size_t len);
@@ -167,8 +202,11 @@ typedef void (*wpa_msg_cb_func)(void *ctx, int level, const char *txt,
  * @func: Callback function (%NULL to unregister)
  */
 void wpa_msg_register_cb(wpa_msg_cb_func func);
-#endif /* CONFIG_NO_WPA_MSG */
 
+typedef const char * (*wpa_msg_get_ifname_func)(void *ctx);
+void wpa_msg_register_ifname_cb(wpa_msg_get_ifname_func func);
+
+#endif /* CONFIG_NO_WPA_MSG */
 
 #ifdef CONFIG_NO_HOSTAPD_LOGGER
 #define hostapd_logger(args...) do { } while (0)
@@ -204,6 +242,23 @@ enum hostapd_logger_level {
 	HOSTAPD_LEVEL_WARNING = 4
 };
 
+
+#ifdef CONFIG_DEBUG_SYSLOG
+
+void wpa_debug_open_syslog(void);
+void wpa_debug_close_syslog(void);
+
+#else /* CONFIG_DEBUG_SYSLOG */
+
+static inline void wpa_debug_open_syslog(void)
+{
+}
+
+static inline void wpa_debug_close_syslog(void)
+{
+}
+
+#endif /* CONFIG_DEBUG_SYSLOG */
 
 
 #ifdef EAPOL_TEST

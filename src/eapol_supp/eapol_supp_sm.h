@@ -15,7 +15,7 @@
 #ifndef EAPOL_SUPP_SM_H
 #define EAPOL_SUPP_SM_H
 
-#include "defs.h"
+#include "common/defs.h"
 
 typedef enum { Unauthorized, Authorized } PortStatus;
 typedef enum { Auto, ForceUnauthorized, ForceAuthorized } PortControl;
@@ -173,7 +173,6 @@ struct eapol_ctx {
 	 */
 	void (*aborted_cached)(void *ctx);
 
-#ifdef EAP_TLS_OPENSSL
 	/**
 	 * opensc_engine_path - Path to the OpenSSL engine for opensc
 	 *
@@ -198,7 +197,6 @@ struct eapol_ctx {
 	 * module is not loaded.
 	 */
 	const char *pkcs11_module_path;
-#endif /* EAP_TLS_OPENSSL */
 
 	/**
 	 * wps - WPS context data
@@ -215,6 +213,13 @@ struct eapol_ctx {
 	 */
 	void (*eap_param_needed)(void *ctx, const char *field,
 				 const char *txt);
+
+	/**
+	 * port_cb - Set port authorized/unauthorized callback (optional)
+	 * @ctx: Callback context (ctx)
+	 * @authorized: Whether the supplicant port is now in authorized state
+	 */
+	void (*port_cb)(void *ctx, int authorized);
 };
 
 
@@ -250,6 +255,7 @@ void eapol_sm_notify_ctrl_response(struct eapol_sm *sm);
 void eapol_sm_request_reauth(struct eapol_sm *sm);
 void eapol_sm_notify_lower_layer_success(struct eapol_sm *sm, int in_eapol_sm);
 void eapol_sm_invalidate_cached_session(struct eapol_sm *sm);
+const char * eapol_sm_get_method_name(struct eapol_sm *sm);
 #else /* IEEE8021X_EAPOL */
 static inline struct eapol_sm *eapol_sm_init(struct eapol_ctx *ctx)
 {
@@ -336,6 +342,10 @@ static inline void eapol_sm_notify_lower_layer_success(struct eapol_sm *sm,
 }
 static inline void eapol_sm_invalidate_cached_session(struct eapol_sm *sm)
 {
+}
+static inline const char * eapol_sm_get_method_name(struct eapol_sm *sm)
+{
+	return NULL;
 }
 #endif /* IEEE8021X_EAPOL */
 

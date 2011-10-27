@@ -19,71 +19,74 @@
 #include "wps_dev_attr.h"
 
 
-static int wps_build_manufacturer(struct wps_device_data *dev,
-				  struct wpabuf *msg)
+int wps_build_manufacturer(struct wps_device_data *dev, struct wpabuf *msg)
 {
 	size_t len;
 	wpa_printf(MSG_DEBUG, "WPS:  * Manufacturer");
 	wpabuf_put_be16(msg, ATTR_MANUFACTURER);
 	len = dev->manufacturer ? os_strlen(dev->manufacturer) : 0;
+#ifndef CONFIG_WPS_STRICT
 	if (len == 0) {
 		/*
 		 * Some deployed WPS implementations fail to parse zero-length
-		 * attributes. As a workaround, send a null character if the
+		 * attributes. As a workaround, send a space character if the
 		 * device attribute string is empty.
 		 */
 		wpabuf_put_be16(msg, 1);
-		wpabuf_put_u8(msg, '\0');
-	} else {
-		wpabuf_put_be16(msg, len);
-		wpabuf_put_data(msg, dev->manufacturer, len);
+		wpabuf_put_u8(msg, ' ');
+		return 0;
 	}
+#endif /* CONFIG_WPS_STRICT */
+	wpabuf_put_be16(msg, len);
+	wpabuf_put_data(msg, dev->manufacturer, len);
 	return 0;
 }
 
 
-static int wps_build_model_name(struct wps_device_data *dev,
-				struct wpabuf *msg)
+int wps_build_model_name(struct wps_device_data *dev, struct wpabuf *msg)
 {
 	size_t len;
 	wpa_printf(MSG_DEBUG, "WPS:  * Model Name");
 	wpabuf_put_be16(msg, ATTR_MODEL_NAME);
 	len = dev->model_name ? os_strlen(dev->model_name) : 0;
+#ifndef CONFIG_WPS_STRICT
 	if (len == 0) {
 		/*
 		 * Some deployed WPS implementations fail to parse zero-length
-		 * attributes. As a workaround, send a null character if the
+		 * attributes. As a workaround, send a space character if the
 		 * device attribute string is empty.
 		 */
 		wpabuf_put_be16(msg, 1);
-		wpabuf_put_u8(msg, '\0');
-	} else {
-		wpabuf_put_be16(msg, len);
-		wpabuf_put_data(msg, dev->model_name, len);
+		wpabuf_put_u8(msg, ' ');
+		return 0;
 	}
+#endif /* CONFIG_WPS_STRICT */
+	wpabuf_put_be16(msg, len);
+	wpabuf_put_data(msg, dev->model_name, len);
 	return 0;
 }
 
 
-static int wps_build_model_number(struct wps_device_data *dev,
-				  struct wpabuf *msg)
+int wps_build_model_number(struct wps_device_data *dev, struct wpabuf *msg)
 {
 	size_t len;
 	wpa_printf(MSG_DEBUG, "WPS:  * Model Number");
 	wpabuf_put_be16(msg, ATTR_MODEL_NUMBER);
 	len = dev->model_number ? os_strlen(dev->model_number) : 0;
+#ifndef CONFIG_WPS_STRICT
 	if (len == 0) {
 		/*
 		 * Some deployed WPS implementations fail to parse zero-length
-		 * attributes. As a workaround, send a null character if the
+		 * attributes. As a workaround, send a space character if the
 		 * device attribute string is empty.
 		 */
 		wpabuf_put_be16(msg, 1);
-		wpabuf_put_u8(msg, '\0');
-	} else {
-		wpabuf_put_be16(msg, len);
-		wpabuf_put_data(msg, dev->model_number, len);
+		wpabuf_put_u8(msg, ' ');
+		return 0;
 	}
+#endif /* CONFIG_WPS_STRICT */
+	wpabuf_put_be16(msg, len);
+	wpabuf_put_data(msg, dev->model_number, len);
 	return 0;
 }
 
@@ -95,54 +98,90 @@ static int wps_build_serial_number(struct wps_device_data *dev,
 	wpa_printf(MSG_DEBUG, "WPS:  * Serial Number");
 	wpabuf_put_be16(msg, ATTR_SERIAL_NUMBER);
 	len = dev->serial_number ? os_strlen(dev->serial_number) : 0;
+#ifndef CONFIG_WPS_STRICT
 	if (len == 0) {
 		/*
 		 * Some deployed WPS implementations fail to parse zero-length
-		 * attributes. As a workaround, send a null character if the
+		 * attributes. As a workaround, send a space character if the
 		 * device attribute string is empty.
 		 */
 		wpabuf_put_be16(msg, 1);
-		wpabuf_put_u8(msg, '\0');
-	} else {
-		wpabuf_put_be16(msg, len);
-		wpabuf_put_data(msg, dev->serial_number, len);
+		wpabuf_put_u8(msg, ' ');
+		return 0;
 	}
+#endif /* CONFIG_WPS_STRICT */
+	wpabuf_put_be16(msg, len);
+	wpabuf_put_data(msg, dev->serial_number, len);
 	return 0;
 }
 
 
 int wps_build_primary_dev_type(struct wps_device_data *dev, struct wpabuf *msg)
 {
-	struct wps_dev_type *d;
 	wpa_printf(MSG_DEBUG, "WPS:  * Primary Device Type");
 	wpabuf_put_be16(msg, ATTR_PRIMARY_DEV_TYPE);
-	wpabuf_put_be16(msg, sizeof(*d));
-	d = wpabuf_put(msg, sizeof(*d));
-	WPA_PUT_BE16(d->categ_id, dev->categ);
-	WPA_PUT_BE32(d->oui, dev->oui);
-	WPA_PUT_BE16(d->sub_categ_id, dev->sub_categ);
+	wpabuf_put_be16(msg, WPS_DEV_TYPE_LEN);
+	wpabuf_put_data(msg, dev->pri_dev_type, WPS_DEV_TYPE_LEN);
 	return 0;
 }
 
 
-static int wps_build_dev_name(struct wps_device_data *dev, struct wpabuf *msg)
+int wps_build_secondary_dev_type(struct wps_device_data *dev,
+				  struct wpabuf *msg)
+{
+	if (!dev->num_sec_dev_types)
+		return 0;
+
+	wpa_printf(MSG_DEBUG, "WPS:  * Secondary Device Type");
+	wpabuf_put_be16(msg, ATTR_SECONDARY_DEV_TYPE_LIST);
+	wpabuf_put_be16(msg, WPS_DEV_TYPE_LEN * dev->num_sec_dev_types);
+	wpabuf_put_data(msg, dev->sec_dev_type,
+			WPS_DEV_TYPE_LEN * dev->num_sec_dev_types);
+
+	return 0;
+}
+
+
+int wps_build_req_dev_type(struct wps_device_data *dev, struct wpabuf *msg,
+			   unsigned int num_req_dev_types,
+			   const u8 *req_dev_types)
+{
+	unsigned int i;
+
+	for (i = 0; i < num_req_dev_types; i++) {
+		wpa_hexdump(MSG_DEBUG, "WPS: * Requested Device Type",
+			    req_dev_types + i * WPS_DEV_TYPE_LEN,
+			    WPS_DEV_TYPE_LEN);
+		wpabuf_put_be16(msg, ATTR_REQUESTED_DEV_TYPE);
+		wpabuf_put_be16(msg, WPS_DEV_TYPE_LEN);
+		wpabuf_put_data(msg, req_dev_types + i * WPS_DEV_TYPE_LEN,
+				WPS_DEV_TYPE_LEN);
+	}
+
+	return 0;
+}
+
+
+int wps_build_dev_name(struct wps_device_data *dev, struct wpabuf *msg)
 {
 	size_t len;
 	wpa_printf(MSG_DEBUG, "WPS:  * Device Name");
 	wpabuf_put_be16(msg, ATTR_DEV_NAME);
 	len = dev->device_name ? os_strlen(dev->device_name) : 0;
+#ifndef CONFIG_WPS_STRICT
 	if (len == 0) {
 		/*
 		 * Some deployed WPS implementations fail to parse zero-length
-		 * attributes. As a workaround, send a null character if the
+		 * attributes. As a workaround, send a space character if the
 		 * device attribute string is empty.
 		 */
 		wpabuf_put_be16(msg, 1);
-		wpabuf_put_u8(msg, '\0');
-	} else {
-		wpabuf_put_be16(msg, len);
-		wpabuf_put_data(msg, dev->device_name, len);
+		wpabuf_put_u8(msg, ' ');
+		return 0;
 	}
+#endif /* CONFIG_WPS_STRICT */
+	wpabuf_put_be16(msg, len);
+	wpabuf_put_data(msg, dev->device_name, len);
 	return 0;
 }
 
@@ -176,6 +215,25 @@ int wps_build_rf_bands(struct wps_device_data *dev, struct wpabuf *msg)
 	wpabuf_put_be16(msg, ATTR_RF_BANDS);
 	wpabuf_put_be16(msg, 1);
 	wpabuf_put_u8(msg, dev->rf_bands);
+	return 0;
+}
+
+
+int wps_build_vendor_ext(struct wps_device_data *dev, struct wpabuf *msg)
+{
+	int i;
+
+	for (i = 0; i < MAX_WPS_VENDOR_EXTENSIONS; i++) {
+		if (dev->vendor_ext[i] == NULL)
+			continue;
+		wpa_hexdump(MSG_DEBUG, "WPS:  * Vendor Extension",
+			    wpabuf_head_u8(dev->vendor_ext[i]),
+			    wpabuf_len(dev->vendor_ext[i]));
+		wpabuf_put_be16(msg, ATTR_VENDOR_EXT);
+		wpabuf_put_be16(msg, wpabuf_len(dev->vendor_ext[i]));
+		wpabuf_put_buf(msg, dev->vendor_ext[i]);
+	}
+
 	return 0;
 }
 
@@ -288,21 +346,19 @@ static int wps_process_dev_name(struct wps_device_data *dev, const u8 *str,
 static int wps_process_primary_dev_type(struct wps_device_data *dev,
 					const u8 *dev_type)
 {
-	struct wps_dev_type *d;
+#ifndef CONFIG_NO_STDOUT_DEBUG
+	char devtype[WPS_DEV_TYPE_BUFSIZE];
+#endif /* CONFIG_NO_STDOUT_DEBUG */
 
 	if (dev_type == NULL) {
 		wpa_printf(MSG_DEBUG, "WPS: No Primary Device Type received");
 		return -1;
 	}
 
-	d = (struct wps_dev_type *) dev_type;
-	dev->categ = WPA_GET_BE16(d->categ_id);
-	dev->oui = WPA_GET_BE32(d->oui);
-	dev->sub_categ = WPA_GET_BE16(d->sub_categ_id);
-
-	wpa_printf(MSG_DEBUG, "WPS: Primary Device Type: category %d "
-		   "OUI %08x sub-category %d",
-		   dev->categ, dev->oui, dev->sub_categ);
+	os_memcpy(dev->pri_dev_type, dev_type, WPS_DEV_TYPE_LEN);
+	wpa_printf(MSG_DEBUG, "WPS: Primary Device Type: %s",
+		   wps_dev_type_bin2str(dev->pri_dev_type, devtype,
+					sizeof(devtype)));
 
 	return 0;
 }
@@ -367,9 +423,7 @@ void wps_device_data_dup(struct wps_device_data *dst,
 		dst->model_number = os_strdup(src->model_number);
 	if (src->serial_number)
 		dst->serial_number = os_strdup(src->serial_number);
-	dst->categ = src->categ;
-	dst->oui = src->oui;
-	dst->sub_categ = src->sub_categ;
+	os_memcpy(dst->pri_dev_type, src->pri_dev_type, WPS_DEV_TYPE_LEN);
 	dst->os_version = src->os_version;
 	dst->rf_bands = src->rf_bands;
 }

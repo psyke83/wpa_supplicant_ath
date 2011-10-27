@@ -35,11 +35,6 @@ struct l2_packet_data;
 #pragma pack(push, 1)
 #endif /* _MSC_VER */
 
-#ifdef CONFIG_WAPI
-#ifndef ETH_P_WAI
-#define ETH_P_WAI       0x88b4
-#endif
-#endif
 
 struct l2_ethhdr {
 	u8 h_dest[ETH_ALEN];

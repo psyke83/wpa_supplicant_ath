@@ -26,9 +26,7 @@
 #include <cutils/sockets.h>
 #include <cutils/memory.h>
 #include "private/android_filesystem_config.h"
-#endif
-
-
+#endif /* ANDROID */
 
 #include "wpa_ctrl.h"
 #include "common.h"
@@ -38,7 +36,7 @@
 #define CTRL_IFACE_SOCKET
 #ifdef ANDROID
 static const char *local_socket_dir = "/data/misc/wifi/sockets";
-static const char *local_socket_prefix = "wpa_ctrl_";
+static const char *local_socket_prefix = "hostapd_ctrl_";
 #endif /* ANDROID */
 #endif /* CONFIG_CTRL_IFACE_UNIX || CONFIG_CTRL_IFACE_UDP */
 
@@ -72,6 +70,14 @@ struct wpa_ctrl {
 
 #ifdef CONFIG_CTRL_IFACE_UNIX
 
+#ifndef CONFIG_CTRL_IFACE_CLIENT_DIR
+#define CONFIG_CTRL_IFACE_CLIENT_DIR "/tmp"
+#endif /* CONFIG_CTRL_IFACE_CLIENT_DIR */
+#ifndef CONFIG_CTRL_IFACE_CLIENT_PREFIX
+#define CONFIG_CTRL_IFACE_CLIENT_PREFIX "wpa_ctrl_"
+#endif /* CONFIG_CTRL_IFACE_CLIENT_PREFIX */
+
+
 struct wpa_ctrl * wpa_ctrl_open(const char *ctrl_path)
 {
 	struct wpa_ctrl *ctrl;
@@ -95,12 +101,12 @@ struct wpa_ctrl * wpa_ctrl_open(const char *ctrl_path)
 	counter++;
 try_again:
 	ret = os_snprintf(ctrl->local.sun_path, sizeof(ctrl->local.sun_path),
-#ifdef ANDROID	
+#ifdef ANDROID
 		    "%s/%s%d-%d", local_socket_dir, local_socket_prefix,
-                    getpid(), counter);
+             getpid(), counter);
 #else /* ANDROID */
-			  "/tmp/wpa_ctrl_%d-%d", getpid(), counter);
-#endif
+			  "/tmp/wpa_ctrl_%d-%d", (int) getpid(), counter);
+#endif /* ANDROID */
 	if (ret < 0 || (size_t) ret >= sizeof(ctrl->local.sun_path)) {
 		close(ctrl->s);
 		os_free(ctrl);
@@ -123,9 +129,10 @@ try_again:
 		os_free(ctrl);
 		return NULL;
 	}
+
 #ifdef ANDROID
-        chmod(ctrl->local.sun_path, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
-        chown(ctrl->local.sun_path, AID_SYSTEM, AID_WIFI);
+	chmod(ctrl->local.sun_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+	chown(ctrl->local.sun_path, AID_SYSTEM, AID_WIFI);
 	/*
 	 * If the ctrl_path isn't an absolute pathname, assume that
 	 * it's the name of a socket in the Android reserved namespace.
@@ -133,7 +140,7 @@ try_again:
 	 * filesystem.
 	 */
 	if (ctrl_path != NULL && *ctrl_path != '/') {
-		os_snprintf(ctrl->dest.sun_path, sizeof(ctrl->dest.sun_path), "wpa_%s",
+		os_snprintf(ctrl->dest.sun_path, sizeof(ctrl->dest.sun_path), "hostapd_%s",
 			    ctrl_path);
 		if (socket_local_client_connect(ctrl->s,
 						ctrl->dest.sun_path,
@@ -146,7 +153,7 @@ try_again:
 		}
 		return ctrl;
 	}
-#endif
+#endif /* ANDROID */
 
 	ctrl->dest.sun_family = AF_UNIX;
 	res = os_strlcpy(ctrl->dest.sun_path, ctrl_path,
@@ -177,7 +184,6 @@ void wpa_ctrl_close(struct wpa_ctrl *ctrl)
 		close(ctrl->s);
 	os_free(ctrl);
 }
-
 #ifdef ANDROID
 /**
  * wpa_ctrl_cleanup() - Delete any local UNIX domain socket files that
@@ -186,7 +192,7 @@ void wpa_ctrl_close(struct wpa_ctrl *ctrl)
  * event of crashes that prevented them from being removed as part
  * of the normal orderly shutdown.
  */
-void wpa_ctrl_cleanup(void)
+void wpa_ctrl_cleanup()
 {
     DIR *dir;
     struct dirent entry;
@@ -217,7 +223,6 @@ void wpa_ctrl_cleanup(void)
     closedir(dir);
 }
 #endif /* ANDROID */
-
 #else /* CONFIG_CTRL_IFACE_UNIX */
 #ifdef ANDROID
 void wpa_ctrl_cleanup()
@@ -225,7 +230,6 @@ void wpa_ctrl_cleanup()
 }
 #endif /* ANDROID */
 #endif /* CONFIG_CTRL_IFACE_UNIX */
-
 
 #ifdef CONFIG_CTRL_IFACE_UDP
 
@@ -326,11 +330,11 @@ int wpa_ctrl_request(struct wpa_ctrl *ctrl, const char *cmd, size_t cmd_len,
 	os_free(cmd_buf);
 
 	for (;;) {
-#ifdef ANDROID  /*Atheros Specific change for ANDROID ???*/
+#ifdef ANDROID
+	        tv.tv_sec = 5;
+#else /* ANDROID */
 		tv.tv_sec = 10;
-#else
-		tv.tv_sec = 5;
-#endif
+#endif /* ANDROID */
 		tv.tv_usec = 0;
 		FD_ZERO(&rfds);
 		FD_SET(ctrl->s, &rfds);
@@ -543,7 +547,7 @@ int wpa_ctrl_pending(struct wpa_ctrl *ctrl)
 
 int wpa_ctrl_get_fd(struct wpa_ctrl *ctrl)
 {
-	return ctrl->pipe;
+	return -1;
 }
 
 #endif /* CONFIG_CTRL_IFACE_NAMED_PIPE */
